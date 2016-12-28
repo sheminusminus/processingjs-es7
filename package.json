@@ -1,0 +1,16 @@
+{
+  "name": "processingjs-es7",
+  "version": "1.0.0",
+  "description": "Processing.js using ES7 ",
+  "main": "processing.js",
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "keywords": [
+    "processingjs"
+  ],
+  "author": "Pomax",
+  "dependencies": {
+    "rollup": "^0.38.1"
+  }
+}
