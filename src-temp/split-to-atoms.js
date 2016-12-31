@@ -1,13 +1,15 @@
-// masks parentheses, brackets and braces with '"A5"'
-// where A is the bracket type, and 5 is the index in an array containing all brackets split into atoms
-// 'while(true){}' -> 'while"B1""A2"'
-//
-//  The mapping used is:
-//
-//    braces{} = A
-//    parentheses() = B
-//    brackets[] = C
-//
+/**
+ * masks parentheses, brackets and braces with '"A5"' where A is the bracket type,
+ * and 5 is the index in an array containing all brackets split into atoms:
+ *
+ *   'while(true){}' -> 'while"B1""A2"'
+ *
+ * The mapping used is:
+ *
+ *   braces{} = A
+ *   parentheses() = B
+ *   brackets[] = C
+ */
 export default function splitToAtoms(code) {
   var atoms = [];
   var items = code.split(/([\{\[\(\)\]\}])/);

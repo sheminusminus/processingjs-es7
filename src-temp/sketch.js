@@ -39,20 +39,26 @@ export default class Sketch {
    * Have the sketch attach itself to Processing
    */
   attach(processing) {
-    // either attachFunction or sourceCode must be present on attach
-    if(typeof this.attachFunction === "function") {
-      this.attachFunction(processing);
-    } else if(this.sourceCode) {
-      var func = ((new Function("return (" + this.sourceCode + ");"))());
-      func(processing);
-      this.attachFunction = func;
-    } else {
-      throw "Unable to attach sketch to the processing instance";
+    //
+    // ============================================================== //
+    //                                                                //
+    //   This is where the source gets interpreted as new Function    //
+    //                                                                //
+    // ============================================================== //
+    //
+    if(typeof this.attachFunction !== "function") {
+      if (this.sourceCode) {
+        var func = ((new Function("return (" + this.sourceCode + ");"))());
+        this.attachFunction = func;
+      } else {
+        throw new Error("Sketch has no source code associated with it...");
+      }
     }
+    this.attachFunction(processing);
   }
 
   /**
-   * Mostly for debugging purposes
+   * Mostly for debugging purposes...
    */
   toString() {
     var i;
@@ -70,7 +76,7 @@ export default class Sketch {
         code += "sketch.imageCache.add(\"" + i + "\");\n";
       }
     }
-    // TODO serialize fonts
+    // FIXME: TODO: serialize fonts as well?
     code += "return sketch;\n})(Processing.Sketch))";
     return code;
   }

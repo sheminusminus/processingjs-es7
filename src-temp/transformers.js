@@ -94,6 +94,41 @@ export default class Transformer {
     this.functionsRegex = /\bfunction(?:\s+([A-Za-z_$][\w$]*))?\s*("B\d+")\s*("A\d+")/g;
   }
 
+ /**
+   * ...
+   */
+  generateClassId() {
+    return "class" + (++this.classIdSeed);
+  }
+
+  /**
+   * ...
+   */
+  appendClass(class_, classId, scopeId) {
+    class_.classId = classId;
+    class_.scopeId = scopeId;
+    this.declaredClasses[classId] = class_;
+  }
+
+  /**
+   * ...
+   */
+  getDefaultValueForType(type) {
+    if(type === "int" || type === "float") {
+      return "0";
+    }
+    if(type === "boolean") {
+      return "false";
+    }
+    if(type === "color") {
+      return "0x00000000";
+    }
+    return "null";
+  }
+
+  /**
+   * ...
+   */
   addAtom(text, type) {
     let atoms = this.atoms;
     let lastIndex = atoms.length;
@@ -101,6 +136,9 @@ export default class Transformer {
     return '"' + type + lastIndex + '"';
   }
 
+  /**
+   * ...
+   */
   transformParams(params) {
     let paramsWithoutPars = trim(params.substring(1, params.length - 1));
     let result = [], methodArgsParam = null;
@@ -118,8 +156,12 @@ export default class Transformer {
     return new AstParams(result, methodArgsParam);
   }
 
+  /**
+   * ...
+   */
   transformInlineClass(class_) {
-    let m = new RegExp(/\bnew\s*([A-Za-z_$][\w$]*\s*(?:\.\s*[A-Za-z_$][\w$]*)*)\s*"B\d+"\s*"A(\d+)"/).exec(class_);
+    let inlineClassRegExp = /\bnew\s*([A-Za-z_$][\w$]*\s*(?:\.\s*[A-Za-z_$][\w$]*)*)\s*"B\d+"\s*"A(\d+)"/;
+    let m = new RegExp(inlineClassRegExp).exec(class_);
     let oldClassId = this.currentClassId;
     let newClassId = this.generateClassId();
     this.currentClassId = newClassId;
@@ -130,12 +172,20 @@ export default class Transformer {
     return inlineClass;
   }
 
+  /**
+   * ...
+   */
   transformFunction(class_) {
-    let m = new RegExp(/\b([A-Za-z_$][\w$]*)\s*"B(\d+)"\s*"A(\d+)"/).exec(class_);
+    let functionRegExp = /\b([A-Za-z_$][\w$]*)\s*"B(\d+)"\s*"A(\d+)"/;
+    let m = new RegExp(functionRegExp).exec(class_);
+    let atoms = this.atoms;
     return new AstFunction( m[1] !== "function" ? m[1] : null,
       this.transformParams(atoms[m[2]]), this.transformStatementsBlock(atoms[m[3]]));
   }
 
+  /**
+   * ...
+   */
   transformInlineObject(obj) {
     let members = obj.split(',');
     for(let i=0; i < members.length; ++i) {
@@ -150,11 +200,15 @@ export default class Transformer {
     return new AstInlineObject(members);
   }
 
+  /**
+   * ...
+   */
   expandExpression(expr) {
     if(expr.charAt(0) === '(' || expr.charAt(0) === '[') {
       return expr.charAt(0) + this.expandExpression(expr.substring(1, expr.length - 1)) + expr.charAt(expr.length - 1);
     }
     if(expr.charAt(0) === '{') {
+      // FIXME: TODO: figure out what the proper name for this regexp is
       if(/^\{\s*(?:[A-Za-z_$][\w$]*|'\d+')\s*:/.test(expr)) {
         return "{" + this.addAtom(expr.substring(1, expr.length - 1), 'I') + "}";
       }
@@ -167,8 +221,12 @@ export default class Transformer {
     return trimmed.untrim(result);
   }
 
+  /**
+   * ...
+   */
   transformExpression(expr) {
     let transforms = [];
+    let atoms = this.atoms;
     let s = this.expandExpression(expr);
     s = s.replace(/"H(\d+)"/g, (all, index) => {
       transforms.push(this.transformFunction(atoms[index]));
@@ -186,6 +244,9 @@ export default class Transformer {
     return new AstExpression(s, transforms);
   };
 
+  /**
+   * ...
+   */
   transformVarDefinition(def, defaultTypeValue) {
     let eqIndex = def.indexOf("=");
     let name, value, isDefault;
@@ -201,19 +262,9 @@ export default class Transformer {
     return new AstVarDefinition( trim(name.replace(/(\s*"C\d+")+/g, "")), value, isDefault);
   }
 
-  getDefaultValueForType(type) {
-    if(type === "int" || type === "float") {
-      return "0";
-    }
-    if(type === "boolean") {
-      return "false";
-    }
-    if(type === "color") {
-      return "0x00000000";
-    }
-    return "null";
-  }
-
+  /**
+   * ...
+   */
   transformStatement(statement) {
     if(this.fieldTest.test(statement)) {
       let attrAndType = this.attrAndTypeRegex.exec(statement);
@@ -227,6 +278,9 @@ export default class Transformer {
     return new AstStatement(this.transformExpression(statement));
   }
 
+  /**
+   * ...
+   */
   transformForExpression(expr) {
     let content;
     if (/\bin\b/.test(expr)) {
@@ -244,7 +298,11 @@ export default class Transformer {
       this.transformExpression(content[1]), this.transformExpression(content[2]));
   }
 
+  /**
+   * ...
+   */
   transformInnerClass(class_) {
+    let atoms = this.atoms;
     let m = this.classesRegex.exec(class_); // 1 - attr, 2 - class|int, 3 - name, 4 - extends, 5 - implements, 6 - body
     this.classesRegex.lastIndex = 0;
     let isStatic = m[1].indexOf("static") >= 0;
@@ -262,6 +320,9 @@ export default class Transformer {
     return innerClass;
   }
 
+  /**
+   * ...
+   */
   transformClassMethod(method) {
     let atoms = this.atoms;
     let m = this.methodsRegex.exec(method);
@@ -272,6 +333,9 @@ export default class Transformer {
       this.transformStatementsBlock(body), isStatic );
   }
 
+  /**
+   * ...
+   */
   transformClassField(statement) {
     let attrAndType = this.attrAndTypeRegex.exec(statement);
     let isStatic = attrAndType[1].indexOf("static") >= 0;
@@ -283,15 +347,10 @@ export default class Transformer {
     return new AstClassField(definitions, attrAndType[2], isStatic);
   }
 
-  transformConstructor(cstr) {
-    let m = new RegExp(/"B(\d+)"\s*"A(\d+)"/).exec(cstr);
-    let params = this.transformParams(atoms[m[1]]);
-
-    return new AstConstructor(params, this.transformStatementsBlock(atoms[m[2]]));
-  }
-
-  // This converts constructors into atoms, and adds them to the atoms array.
-  // constructors = G
+  /**
+   * This converts constructors into atoms, and adds them to the atoms array.
+   * constructors = G
+   */
   extractConstructors(code, className) {
     let result = code.replace(this.cstrsRegex, (all, attr, name, params, throws_, body) => {
       if(name !== className) {
@@ -302,8 +361,21 @@ export default class Transformer {
     return result;
   }
 
-  // This converts classes, methods and functions into atoms, and adds them to the atoms array.
-  // classes = E, methods = D and functions = H
+  /**
+   * ...
+   */
+  transformConstructor(cstr) {
+    let atoms = this.atoms;
+    let m = new RegExp(/"B(\d+)"\s*"A(\d+)"/).exec(cstr);
+    let params = this.transformParams(atoms[m[1]]);
+
+    return new AstConstructor(params, this.transformStatementsBlock(atoms[m[2]]));
+  }
+
+  /**
+   * This converts classes, methods and functions into atoms, and adds them to the atoms array.
+   * classes = E, methods = D and functions = H
+   */
   extractClassesAndMethods(code) {
     let s = code;
     s = s.replace(this.classesRegex, all => this.addAtom(all, 'E'));
@@ -312,7 +384,11 @@ export default class Transformer {
     return s;
   }
 
+  /**
+   * ...
+   */
   transformInterfaceBody(body, name, baseInterfaces) {
+    let atoms = this.atoms;
     let declarations = body.substring(1, body.length - 1);
     declarations = this.extractClassesAndMethods(declarations);
     declarations = this.extractConstructors(declarations, name);
@@ -345,8 +421,11 @@ export default class Transformer {
     }
 
     return new AstInterfaceBody(name, baseInterfaceNames, methodsNames, fields, classes, { tail: tail });
-  };
+  }
 
+  /**
+   * ...
+   */
   transformClassBody(body, name, baseName, interfaces) {
     let atoms = this.atoms;
     let declarations = body.substring(1, body.length - 1);
@@ -366,10 +445,12 @@ export default class Transformer {
     let i;
 
     if(baseName !== undefined) {
+      // FIXME: TODO: figure out the proper name for this regexp
       baseClassName = baseName.replace(/^\s*extends\s+([A-Za-z_$][\w$]*\b(?:\s*\.\s*[A-Za-z_$][\w$]*\b)*)\s*$/g, "$1");
     }
 
     if(interfaces !== undefined) {
+      // FIXME: TODO: figure out the proper name for this regexp
       interfacesNames = interfaces.replace(/^\s*implements\s+(.+?)\s*$/g, "$1").split(/\s*,\s*/g);
     }
 
@@ -393,21 +474,15 @@ export default class Transformer {
 
     return new AstClassBody(name, baseClassName, interfacesNames, functions, methods, fields, cstrs,
       classes, { tail: tail });
-  };
-
-  generateClassId() {
-    return "class" + (++this.classIdSeed);
   }
 
-  appendClass(class_, classId, scopeId) {
-    class_.classId = classId;
-    class_.scopeId = scopeId;
-    this.declaredClasses[classId] = class_;
-  }
-
+  /**
+   * ...
+   */
   transformGlobalClass(class_) {
     let m = this.classesRegex.exec(class_); // 1 - attr, 2 - class|int, 3 - name, 4 - extends, 5 - implements, 6 - body
     this.classesRegex.lastIndex = 0;
+    let atoms = this.atoms;
     let body = this.atoms[getAtomIndex(m[6])];
     let oldClassId = this.currentClassId
     let newClassId = this.generateClassId();
@@ -423,6 +498,9 @@ export default class Transformer {
     return globalClass;
   }
 
+  /**
+   * ...
+   */
   transformGlobalMethod(method) {
     let atoms = this.atoms;
     let m = this.methodsRegex.exec(method);
@@ -432,6 +510,9 @@ export default class Transformer {
       this.transformStatementsBlock(atoms[getAtomIndex(m[6])]));
   }
 
+  /**
+   * ...
+   */
   transformStatements(statements) {
     let nextStatement = new RegExp(/\b(catch|for|if|switch|while|with)\s*"B(\d+)"|\b(do|else|finally|return|throw|try|break|continue)\b|("[ADEH](\d+)")|\b(case)\s+([^:]+):|\b([A-Za-z_$][\w$]*\s*:)|(;)/g);
     let atoms = this.atoms;
@@ -494,6 +575,9 @@ export default class Transformer {
     return res;
   }
 
+  /**
+   * ...
+   */
   transformStatementsBlock(block) {
     let content = trimSpaces(block.substring(1, block.length - 1));
     return new AstStatementsBlock(this.transformStatements(content.middle));

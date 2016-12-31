@@ -1,6 +1,28 @@
+// helper function
+function removeDependentAndCheck(tocheck, targetId, from) {
+  let dependsOn = tocheck[targetId];
+  if (!dependsOn) {
+    return false; // no need to process
+  }
+  let i = dependsOn.indexOf(from);
+  if (i < 0) {
+    return false;
+  }
+  dependsOn.splice(i, 1);
+  if (dependsOn.length > 0) {
+    return false;
+  }
+  delete tocheck[targetId];
+  return true;
+}
+
+/**
+ * ...documentation goes here...
+ */
 export default function setWeight(declaredClasses) {
   let queue = [], tocheck = {};
   let id, scopeId, class_;
+
   // queue most inner and non-inherited
   for (id in declaredClasses) {
     if (declaredClasses.hasOwnProperty(id)) {
@@ -24,30 +46,15 @@ export default function setWeight(declaredClasses) {
       }
     }
   }
-  function removeDependentAndCheck(targetId, from) {
-    let dependsOn = tocheck[targetId];
-    if (!dependsOn) {
-      return false; // no need to process
-    }
-    let i = dependsOn.indexOf(from);
-    if (i < 0) {
-      return false;
-    }
-    dependsOn.splice(i, 1);
-    if (dependsOn.length > 0) {
-      return false;
-    }
-    delete tocheck[targetId];
-    return true;
-  }
+
   while (queue.length > 0) {
     id = queue.shift();
     class_ = declaredClasses[id];
-    if (class_.scopeId && removeDependentAndCheck(class_.scopeId, class_)) {
+    if (class_.scopeId && removeDependentAndCheck(tocheck, class_.scopeId, class_)) {
       queue.push(class_.scopeId);
       declaredClasses[class_.scopeId].weight = class_.weight + 1;
     }
-    if (class_.base && removeDependentAndCheck(class_.base.classId, class_)) {
+    if (class_.base && removeDependentAndCheck(tocheck, class_.base.classId, class_)) {
       queue.push(class_.base.classId);
       class_.base.weight = class_.weight + 1;
     }
@@ -55,7 +62,7 @@ export default function setWeight(declaredClasses) {
       let i, l;
       for (i = 0, l = class_.interfaces.length; i < l; ++i) {
         if (!class_.interfaces[i] ||
-            !removeDependentAndCheck(class_.interfaces[i].classId, class_)) {
+            !removeDependentAndCheck(tocheck, class_.interfaces[i].classId, class_)) {
           continue;
         }
         queue.push(class_.interfaces[i].classId);
@@ -63,4 +70,5 @@ export default function setWeight(declaredClasses) {
       }
     }
   }
+
 };
