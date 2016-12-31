@@ -1,6 +1,9 @@
-  function AstStatement(expression) {
+export default class AstStatement {
+  constructor(expression) {
     this.expression = expression;
   }
-  AstStatement.prototype.toString = function() {
-    return this.expression.toString();
-  };
+
+  toString(replaceContext) {
+    return this.expression.toString(replaceContext);
+  }
+};

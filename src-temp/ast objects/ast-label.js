@@ -1,7 +1,9 @@
-
-  function AstLabel(label) {
+export default class AstLabel {
+  constructor(label) {
     this.label = label;
   }
-  AstLabel.prototype.toString = function() {
+
+  toString(replaceContext) {
     return this.label;
-  };
+  }
+};

@@ -1,5 +1,7 @@
+import contextMappedString from "../context-mapped-string.js";
 
-  function AstInterfaceBody(name, interfacesNames, methodsNames, fields, innerClasses, misc) {
+export default class AstInterfaceBody {
+  constructor(name, interfacesNames, methodsNames, fields, innerClasses, misc) {
     var i,l;
     this.name = name;
     this.interfacesNames = interfacesNames;
@@ -11,7 +13,8 @@
       fields[i].owner = this;
     }
   }
-  AstInterfaceBody.prototype.getMembers = function(classFields, classMethods, classInners) {
+
+  getMembers(classFields, classMethods, classInners) {
     if(this.owner.base) {
       this.owner.base.body.getMembers(classFields, classMethods, classInners);
     }
@@ -30,8 +33,9 @@
       var innerClass = this.innerClasses[i];
       classInners[innerClass.name] = innerClass;
     }
-  };
-  AstInterfaceBody.prototype.toString = function() {
+  }
+
+  toString(replaceContext) {
     function getScopeLevel(p) {
       var i = 0;
       while(p) {
@@ -63,10 +67,10 @@
         resolvedInterfaces.push(resolvedInterface);
         staticDefinitions += "$p.extendInterfaceMembers(" + className + ", " + resolvedInterface + ");\n";
       }
-      metadata += className + ".$interfaces = [" + resolvedInterfaces.join(", ") + "];\n";
+      metadata += className + ".$interfaces = [" + contextMappedString(resolvedInterfaces, replaceContext, ', ') + "];\n";
     }
     metadata += className + ".$isInterface = true;\n";
-    metadata += className + ".$methods = [\'" + this.methodsNames.join("\', \'") + "\'];\n";
+    metadata += className + ".$methods = [\'" + contextMappedString(this.methodsNames, replaceContext, "\', \'") + "\'];\n";
 
     sortByWeight(this.innerClasses);
     for (i = 0, l = this.innerClasses.length; i < l; ++i) {
@@ -79,7 +83,7 @@
     for (i = 0, l = this.fields.length; i < l; ++i) {
       var field = this.fields[i];
       if (field.isStatic) {
-        staticDefinitions += className + "." + field.definitions.join(";\n" + className + ".") + ";\n";
+        staticDefinitions += className + "." + contextMappedString(field.definitions, replaceContext, ";\n" + className + ".") + ";\n";
       }
     }
 
@@ -89,4 +93,5 @@
       metadata +
       "return " + className + ";\n" +
       "})()";
-  };
+  }
+};

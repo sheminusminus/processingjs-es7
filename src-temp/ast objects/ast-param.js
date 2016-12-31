@@ -1,7 +1,10 @@
-  // AstParam contains the name of a parameter inside a function declaration
-  function AstParam(name) {
+// AstParam contains the name of a parameter inside a function declaration
+export default class AstParam {
+  constructor(name) {
     this.name = name;
   }
-  AstParam.prototype.toString = function() {
+
+  toString(replaceContext) {
     return this.name;
-  };
+  }
+};

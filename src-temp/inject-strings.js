@@ -1,6 +1,5 @@
-
 // replaces strings and regexs keyed by index with an array of strings
-function injectStrings(code, strings) {
+export default function injectStrings(code, strings) {
   return code.replace(/'(\d+)'/g, function(all, index) {
     var val = strings[index];
     if(val.charAt(0) === "/") {

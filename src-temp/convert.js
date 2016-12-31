@@ -4,10 +4,14 @@
 //
 // ==================================================================
 
+import Sketch from "./sketch";
+import processPredirectives from "./process-predirectives";
+import parseProcessing from "./parse-processing";
+
 export default function convert(processingSourceCode) {
-  let sketch = new Processing.Sketch();
-  let pureSourceCode = processPreDirectives(processingSourceCode, sketch);
+  let sketch = new Sketch();
+  let pureSourceCode = processPredirectives(processingSourceCode, sketch);
   let javaScriptSourceCode = parseProcessing(pureSourceCode);
-  sketch.sourceSourceCode = javaScriptSourceCode;
+  sketch.sourceCode = javaScriptSourceCode;
   return sketch;
 }

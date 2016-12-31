@@ -1,8 +1,11 @@
-  function AstInlineClass(baseInterfaceName, body) {
+export default class AstInlineClass {
+  constructor (baseInterfaceName, body) {
     this.baseInterfaceName = baseInterfaceName;
     this.body = body;
     body.owner = this;
   }
-  AstInlineClass.prototype.toString = function() {
+
+  toString(replaceContext) {
     return "new (" + this.body + ")";
-  };
+  }
+};

@@ -11,3 +11,11 @@ function trimSpaces(string) {
   result.untrim = function(t) { return this.left + t + this.right; };
   return result;
 }
+
+// simple trim of leading and trailing spaces
+function trim(string) {
+  // FIXME: TODO: same as string.trim() ?
+  return string.replace(/^\s+/,'').replace(/\s+$/,'');
+}
+
+export { trim, trimSpaces };

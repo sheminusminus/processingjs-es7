@@ -1,11 +1,18 @@
-
-  function AstFunction(name, params, body) {
+export default class AstFunction {
+  constructor (name, params, body) {
     this.name = name;
     this.params = params;
     this.body = body;
   }
-  AstFunction.prototype.toString = function() {
+
+  toString(replaceContext) {
     var oldContext = replaceContext;
+
+    if (!oldContext) {
+      console.error("NO CONTEXT IN AstFunction.toString");
+      console.trace();
+    }
+
     // saving "this." and parameters
     var names = appendToLookupTable({"this":null}, this.params.getNames());
     replaceContext = function (subject) {
@@ -19,4 +26,5 @@
     result += this.params + " " + body;
     replaceContext = oldContext;
     return result;
-  };
+  }
+};

@@ -1,5 +1,5 @@
 // removes generics
-function removeGenerics(codeWoStrings) {
+export default function removeGenerics(codeWoStrings) {
 	let genericsWereRemoved;
 	let codeWoGenerics = codeWoStrings;
 

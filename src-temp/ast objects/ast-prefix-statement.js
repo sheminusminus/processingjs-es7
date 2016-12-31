@@ -1,13 +1,15 @@
-
-  function AstPrefixStatement(name, argument, misc) {
+export default class AstPrefixStatement {
+  constructor(name, argument, misc) {
     this.name = name;
     this.argument = argument;
     this.misc = misc;
   }
-  AstPrefixStatement.prototype.toString = function() {
+
+  toString(replaceContext) {
     var result = this.misc.prefix;
-    if(this.argument !== undef) {
+    if(this.argument !== undefined) {
       result += this.argument.toString();
     }
     return result;
-  };
+  }
+};

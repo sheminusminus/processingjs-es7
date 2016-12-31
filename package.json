@@ -4,7 +4,8 @@
   "description": "Processing.js using ES7 ",
   "main": "processing.js",
   "scripts": {
-    "build": "rollup -c"
+    "build": "rollup -c",
+    "test": "cls && rollup src-temp/test.js -o test.js && node test"
   },
   "keywords": [
     "processingjs"

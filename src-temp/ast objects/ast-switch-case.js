@@ -1,8 +1,9 @@
-
-
-  function AstSwitchCase(expr) {
+export default class AstSwitchCase {
+  constructor(expr) {
     this.expr = expr;
   }
-  AstSwitchCase.prototype.toString = function() {
+
+  toString(replaceContext) {
     return "case " + this.expr + ":";
-  };
+  }
+};

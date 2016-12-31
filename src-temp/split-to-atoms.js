@@ -8,7 +8,7 @@
 //    parentheses() = B
 //    brackets[] = C
 //
-function splitToAtoms(code) {
+export default function splitToAtoms(code) {
   var atoms = [];
   var items = code.split(/([\{\[\(\)\]\}])/);
   var result = items[0];
@@ -27,4 +27,4 @@ function splitToAtoms(code) {
   }
   atoms.unshift(result);
   return atoms;
-}
+};

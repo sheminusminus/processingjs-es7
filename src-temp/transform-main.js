@@ -1,7 +1,7 @@
-import globalMembers from "../get-global-members";
-import (transformGlobalMethod, transformGlobalClass) from "./transformers"
-import "./ast ojbects/AstRoot";
-
+import removeGenerics from "./remove-generics";
+import splitToAtoms from "./split-to-atoms";
+import Transformer from "./transformers";
+import Ast from "./ast objects/ast";
 
 // helper function:
 //
@@ -62,20 +62,22 @@ export default function transformMain(code) {
 
 	// Split code into atoms
 	let atoms = splitToAtoms(codeWithoutGenerics);
+  let transformer = new Transformer(atoms);
 
   // Remove java import statements from the source
   //
   // FIXME: TODO: now that ES6 has class import functionality, we
   //              should be able to leave these in, and then during
   //              execution let the browser deal with errors.
-  let statements = extractClassesAndMethods(atoms[0]);
+  let statements = transformer.extractClassesAndMethods(atoms[0]);
   statements = statements.replace(/\bimport\s+[^;]+;/g, "");
 
   // transform code into an AST nodeSet
-  let nodeSet = transformStatements(statements, transformGlobalMethod, transformGlobalClass);
+  let nodeSet = transformer.transformStatements(statements);
+  let declaredClasses = transformer.declaredClasses;
 
   // bind transform as AST
-  let ast = new AstRoot( nodeSet );
+  let ast = new Ast(declaredClasses, strings, nodeSet);
   ast.generateMetadata();
   ast.setWeight();
 

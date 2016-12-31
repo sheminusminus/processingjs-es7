@@ -6,7 +6,7 @@ function clean(s) {
 /**
  * collect all @PJS pre-directives
  */
-function processPreDirectives(aCode, sketch) {
+export default function processPreDirectives(aCode, sketch) {
   // Parse out @pjs directive, if any.
   let dm = new RegExp(/\/\*\s*@pjs\s+((?:[^\*]|\*+[^\*\/])*)\*\//g).exec(aCode);
 
@@ -59,4 +59,4 @@ function processPreDirectives(aCode, sketch) {
   }
 
   return aCode;
-} // end preprocessCode
+}

@@ -1,7 +1,10 @@
-  function AstForStatement(argument, misc) {
+export default class AstForStatement {
+  constructor(argument, misc) {
     this.argument = argument;
     this.misc = misc;
   }
-  AstForStatement.prototype.toString = function() {
+
+  toString(replaceContext) {
     return this.misc.prefix + this.argument.toString();
-  };
+  }
+};

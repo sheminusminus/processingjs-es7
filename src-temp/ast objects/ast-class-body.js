@@ -1,5 +1,9 @@
+import { trim } from "../trim-spaces";
+import sortByWeight from "../sort-by-weight";
+import contextMappedString from "../context-mapped-string.js";
 
-  function AstClassBody(name, baseClassName, interfacesNames, functions, methods, fields, cstrs, innerClasses, misc) {
+export default class AstClassBody {
+  constructor(name, baseClassName, interfacesNames, functions, methods, fields, cstrs, innerClasses, misc) {
     var i,l;
     this.name = name;
     this.baseClassName = baseClassName;
@@ -14,7 +18,8 @@
       fields[i].owner = this;
     }
   }
-  AstClassBody.prototype.getMembers = function(classFields, classMethods, classInners) {
+
+  getMembers(classFields, classMethods, classInners) {
     if(this.owner.base) {
       this.owner.base.body.getMembers(classFields, classMethods, classInners);
     }
@@ -33,8 +38,9 @@
       var innerClass = this.innerClasses[i];
       classInners[innerClass.name] = innerClass;
     }
-  };
-  AstClassBody.prototype.toString = function() {
+  }
+
+  toString(replaceContext) {
     function getScopeLevel(p) {
       var i = 0;
       while(p) {
@@ -52,10 +58,19 @@
     var staticDefinitions = "";
     var metadata = "";
 
-    var thisClassFields = {}, thisClassMethods = {}, thisClassInners = {};
+    var thisClassFields = {},
+        thisClassMethods = {},
+        thisClassInners = {};
+
     this.getMembers(thisClassFields, thisClassMethods, thisClassInners);
 
     var oldContext = replaceContext;
+
+    if (!oldContext) {
+      console.error("NO CONTEXT IN AstClassBody.toString");
+      console.trace();
+    }
+
     replaceContext = function (subject) {
       var name = subject.name;
       if(name === "this") {
@@ -79,8 +94,7 @@
     if (this.baseClassName) {
       resolvedBaseClassName = oldContext({name: this.baseClassName});
       result += "var $super = { $upcast: " + selfId + " };\n";
-      result += "function $superCstr(){" + resolvedBaseClassName +
-        ".apply($super,arguments);if(!('$self' in $super)) $p.extendClassChain($super)}\n";
+      result += "function $superCstr(){" + resolvedBaseClassName + ".apply($super,arguments);if(!('$self' in $super)) $p.extendClassChain($super)}\n";
       metadata += className + ".$base = " + resolvedBaseClassName + ";\n";
     } else {
       result += "function $superCstr(){$p.extendClassChain("+ selfId +")}\n";
@@ -104,11 +118,11 @@
         resolvedInterfaces.push(resolvedInterface);
         staticDefinitions += "$p.extendInterfaceMembers(" + className + ", " + resolvedInterface + ");\n";
       }
-      metadata += className + ".$interfaces = [" + resolvedInterfaces.join(", ") + "];\n";
+      metadata += className + ".$interfaces = [" + contextMappedString(resolvedInterfaces, replaceContext, ", ") + "];\n";
     }
 
     if (this.functions.length > 0) {
-      result += this.functions.join('\n') + '\n';
+      result += contextMappedString(this.functions, replaceContext, '\n') + '\n';
     }
 
     sortByWeight(this.innerClasses);
@@ -125,7 +139,7 @@
     for (i = 0, l = this.fields.length; i < l; ++i) {
       var field = this.fields[i];
       if (field.isStatic) {
-        staticDefinitions += className + "." + field.definitions.join(";\n" + className + ".") + ";\n";
+        staticDefinitions += className + "." + contextMappedString(field.definitions, replaceContext, ";\n" + className + ".") + ";\n";
         for (j = 0, m = field.definitions.length; j < m; ++j) {
           var fieldName = field.definitions[j].name, staticName = className + "." + fieldName;
           result += "$p.defineProperty(" + selfId + ", '" + fieldName + "', {" +
@@ -133,9 +147,10 @@
             "set: function(val){" + staticName + " = val}});\n";
         }
       } else {
-        result += selfId + "." + field.definitions.join(";\n" + selfId + ".") + ";\n";
+        result += selfId + "." + contextMappedString(field.definitions, replaceContext, ";\n" + selfId + ".") + ";\n";
       }
     }
+
     var methodOverloads = {};
     for (i = 0, l = this.methods.length; i < l; ++i) {
       var method = this.methods[i];
@@ -151,41 +166,43 @@
       method.methodId = methodId;
       methodOverloads[method.name] = overload;
       if (method.isStatic) {
-        staticDefinitions += method;
+        staticDefinitions += method.toString(replaceContext);
         staticDefinitions += "$p.addMethod(" + className + ", '" + method.name + "', " + methodId + ", " + hasMethodArgs + ");\n";
         result += "$p.addMethod(" + selfId + ", '" + method.name + "', " + methodId + ", " + hasMethodArgs + ");\n";
       } else {
-        result += method;
+        result += method.toString(replaceContext);
         result += "$p.addMethod(" + selfId + ", '" + method.name + "', " + methodId + ", " + hasMethodArgs + ");\n";
       }
     }
     result += trim(this.misc.tail);
 
     if (this.cstrs.length > 0) {
-      result += this.cstrs.join('\n') + '\n';
+      result += contextMappedString(this.cstrs, replaceContext, '\n') + '\n';
     }
 
     result += "function $constr() {\n";
+
     var cstrsIfs = [];
     for (i = 0, l = this.cstrs.length; i < l; ++i) {
       var paramsLength = this.cstrs[i].params.params.length;
       var methodArgsPresent = !!this.cstrs[i].params.methodArgsParam;
-      cstrsIfs.push("if(arguments.length " + (methodArgsPresent ? ">=" : "===") +
-        " " + paramsLength + ") { " +
+      cstrsIfs.push("if(arguments.length " + (methodArgsPresent ? ">=" : "===") + " " + paramsLength + ") { " +
         "$constr_" + paramsLength + ".apply(" + selfId + ", arguments); }");
     }
+
     if(cstrsIfs.length > 0) {
-      result += cstrsIfs.join(" else ") + " else ";
+      result += contextMappedString(cstrsIfs, replaceContext, " else ") + " else ";
     }
+
     // ??? add check if length is 0, otherwise fail
     result += "$superCstr();\n}\n";
     result += "$constr.apply(null, arguments);\n";
 
-    replaceContext = oldContext;
     return "(function() {\n" +
       "function " + className + "() {\n" + result + "}\n" +
       staticDefinitions +
       metadata +
       "return " + className + ";\n" +
       "})()";
-  };
+  }
+};

@@ -1,12 +1,13 @@
-function parseProcessing(code) {
+import transformMain from "./transform-main";
+import injectStrings from "./inject-strings";
 
+export default function parseProcessing(code) {
   // run the conversion from source to AST
   let ast = transformMain(code);
-  return ast;
 
-/*
   // convert AST to processing.js source code
-  pjsSourceCode = ast.toString();
+  let pjsSourceCode = ast.toString();
+  let strings = ast.getSourceStrings();
 
   // remove empty extra lines with space
   pjsSourceCode = pjsSourceCode.replace(/\s*\n(?:[\t ]*\n)+/g, "\n\n");
@@ -19,7 +20,5 @@ function parseProcessing(code) {
   // inject string content
   pjsSourceCode = injectStrings(pjsSourceCode, strings);
 
-  return pjsSourceCode
-*/
-
-}
+  return pjsSourceCode;
+};

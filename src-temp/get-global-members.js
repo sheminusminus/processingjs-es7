@@ -293,18 +293,18 @@ var names = [
     "__matches"
 ];
 
-// custom functions and properties are added here
-if(aFunctions) {
-Object.keys(aFunctions).forEach(function(name) {
-  names.push(name);
-});
-}
+// // custom functions and properties are added here
+// if(aFunctions) {
+//   Object.keys(aFunctions).forEach(function(name) {
+//     names.push(name);
+//   });
+// }
 
 // custom libraries that were attached to Processing
 var globalNames = {};
 var i, l;
 for (i = 0, l = names.length; i < l ; ++i) {
-globalNames[names[i]] = null;
+    globalNames[names[i]] = null;
 }
 
 // for (var lib in Processing.lib) {

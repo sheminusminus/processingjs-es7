@@ -1,12 +1,14 @@
+import replaceContextInVars from "../replace-context-in-vars";
 
-  function AstExpression(expr, transforms) {
+export default class AstExpression {
+  constructor(expr, transforms) {
     this.expr = expr;
     this.transforms = transforms;
   }
-  AstExpression.prototype.toString = function() {
+
+  toString(replaceContext) {
     var transforms = this.transforms;
-    var expr = replaceContextInVars(this.expr);
-    return expr.replace(/"!(\d+)"/g, function(all, index) {
-      return transforms[index].toString();
-    });
-  };
+    var expr = replaceContextInVars(this.expr, replaceContext);
+    return expr.replace(/"!(\d+)"/g, (all, index) => transforms[index].toString(replaceContext));
+  }
+};

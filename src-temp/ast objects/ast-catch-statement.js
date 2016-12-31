@@ -1,7 +1,10 @@
-  function AstCatchStatement(argument, misc) {
+export default class AstCatchStatement {
+  constructor(argument, misc) {
     this.argument = argument;
     this.misc = misc;
   }
-  AstCatchStatement.prototype.toString = function() {
+
+  toString(replaceContext) {
     return this.misc.prefix + this.argument.toString();
-  };
+  }
+};

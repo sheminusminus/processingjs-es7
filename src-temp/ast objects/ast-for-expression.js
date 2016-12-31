@@ -1,8 +1,11 @@
-  function AstForExpression(initStatement, condition, step) {
+export default class AstForExpression {
+  constructor(initStatement, condition, step) {
     this.initStatement = initStatement;
     this.condition = condition;
     this.step = step;
   }
-  AstForExpression.prototype.toString = function() {
+
+  toString(replaceContext) {
     return "(" + this.initStatement + "; " + this.condition + "; " + this.step + ")";
-  };
+  }
+};

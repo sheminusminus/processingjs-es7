@@ -1,10 +1,12 @@
-
-  function AstClass(name, body) {
+export default class AstClass {
+  constructor(name, body) {
     this.name = name;
     this.body = body;
     body.owner = this;
   }
-  AstClass.prototype.toString = function() {
-    return "var " + this.name + " = " + this.body + ";\n" +
+
+  toString(replaceContext) {
+    return "var " + this.name + " = " + this.body.toString(replaceContext) + ";\n" +
       "$p." + this.name + " = " + this.name + ";\n";
-  };
+  }
+};
