@@ -8,7 +8,7 @@ export default class AstPrefixStatement {
   toString(replaceContext) {
     var result = this.misc.prefix;
     if(this.argument !== undefined) {
-      result += this.argument.toString();
+      result += this.argument.toString(replaceContext);
     }
     return result;
   }

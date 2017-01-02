@@ -5,7 +5,7 @@
   "main": "processing.js",
   "scripts": {
     "build": "rollup -c",
-    "test": "cls && rollup src-temp/test.js -o test.js && node test"
+    "test": "cls && rollup src/test.js -o test.js && node --harmony-async-await test"
   },
   "keywords": [
     "processingjs"

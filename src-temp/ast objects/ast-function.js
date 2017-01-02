@@ -24,7 +24,6 @@ export default class AstFunction {
     }
     var body = this.params.prependMethodArgs(this.body.toString());
     result += this.params + " " + body;
-    replaceContext = oldContext;
     return result;
   }
 };

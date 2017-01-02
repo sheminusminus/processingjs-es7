@@ -1,195 +1,54 @@
-function noop() {}
+/**
+ * Parser to turn string data into an AST
+ */
 
-function createImageCache() {
-  let isWindowPresent = (typeof window !== "undefined");
-  let isDOMPresent = isWindowPresent && (typeof document !== "undefined");
+class JavaBaseClass {
 
-  return {
-    pending: 0,
-    images: {},
-    // Opera requires special administration for preloading
-    operaCache: {},
-    // Specify an optional img arg if the image is already loaded in the DOM,
-    // otherwise href will get loaded.
-    add: function(href, img) {
-      // Prevent muliple loads for an image, in case it gets
-      // preloaded more than once, or is added via JS and then preloaded.
-      if (this.images[href]) {
-        return;
-      }
+	// void -> String
+	toString() { return "JavaBaseClass"; }
 
-      if (!isDOMPresent) {
-        this.images[href] = null;
-      }
+	// void -> integer
+	hashCode() { return 0; }
 
-      // No image in the DOM, kick-off a background load
-      if (!img) {
-        img = new Image();
-        img.onload = (function(owner) {
-          return function() {
-            owner.pending--;
-          };
-        }(this));
-        this.pending++;
-        img.src = href;
-      }
-
-      this.images[href] = img;
-
-      // Opera will not load images until they are inserted into the DOM.
-      if (isWindowPresent && window.opera) {
-        var div = document.createElement("div");
-        div.appendChild(img);
-        // we can't use "display: none", since that makes it invisible, and thus not load
-        div.style.position = "absolute";
-        div.style.opacity = 0;
-        div.style.width = "1px";
-        div.style.height= "1px";
-        if (!this.operaCache[href]) {
-          document.body.appendChild(div);
-          this.operaCache[href] = div;
-        }
-      }
-    }
-  };
 }
+
+var noop = () => {};
+var emptyhooks = {
+  presetup: noop,
+  postsetup: noop,
+  predraw: noop,
+  postdraw: noop,
+};
 
 /**
- * This is the object that acts as our version of PApplet.
- * This can be called as Processing.Sketch() or as
- * Processing.Sketch(function) in which case the function
- * must be an already-compiled-to-JS sketch function.
+ * The actual sketch classs
  */
-class Sketch {
-  constructor (attachFunction) {
-    this.attachFunction = attachFunction;
-    this.options = {
-      pauseOnBlur: false,
-      globalKeyEvents: false
-    };
-    this.params = {};
-    this.imageCache = createImageCache();
-    this.sourceCode = undefined;
-    /* Optional Sketch event hooks:
-     *   onLoad       - parsing/preloading is done, before sketch starts
-     *   onSetup      - setup() has been called, before first draw()
-     *   onPause      - noLoop() has been called, pausing draw loop
-     *   onLoop       - loop() has been called, resuming draw loop
-     *   onFrameStart - draw() loop about to begin
-     *   onFrameEnd   - draw() loop finished
-     *   onExit       - exit() done being called
-     */
-    this.onLoad = noop;
-    this.onSetup = noop;
-    this.onPause = noop;
-    this.onLoop = noop;
-    this.onFrameStart = noop;
-    this.onFrameEnd = noop;
-    this.onExit = noop;
+class Sketch extends JavaBaseClass {
+  constructor(id, $p) {
+    super();
+    this.id = id;
+    setTimeout( () => {
+      $p.onSketchLoad(this);
+    }, 1);
   }
 
-  /**
-   * Have the sketch attach itself to Processing
-   */
-  attach(processing) {
-    // either attachFunction or sourceCode must be present on attach
-    if(typeof this.attachFunction === "function") {
-      this.attachFunction(processing);
-    } else if(this.sourceCode) {
-      var func = ((new Function("return (" + this.sourceCode + ");"))());
-      func(processing);
-      this.attachFunction = func;
-    } else {
-      throw "Unable to attach sketch to the processing instance";
-    }
+  __pre_setup(hooks) {
+  	this.hooks = Object.assign({}, emptyhooks, hooks);
+  	this.hooks.presetup();
   }
 
-  /**
-   * Mostly for debugging purposes
-   */
-  toString() {
-    var i;
-    var code = "((function(Sketch) {\n";
-    code += "var sketch = new Sketch(\n" + this.sourceCode + ");\n";
-    for(i in this.options) {
-      if(this.options.hasOwnProperty(i)) {
-        var value = this.options[i];
-        code += "sketch.options." + i + " = " +
-          (typeof value === 'string' ? '\"' + value + '\"' : "" + value) + ";\n";
-      }
-    }
-    for(i in this.imageCache) {
-      if(this.options.hasOwnProperty(i)) {
-        code += "sketch.imageCache.add(\"" + i + "\");\n";
-      }
-    }
-    // TODO serialize fonts
-    code += "return sketch;\n})(Processing.Sketch))";
-    return code;
-  }
-}
-
-// L/RTrim, also removing any surrounding double quotes (e.g., just take string contents).
-function clean(s) {
-  return s.replace(/^\s*["']?/, '').replace(/["']?\s*$/, '');
-}
-
-/**
- * collect all @PJS pre-directives
- */
-function processPreDirectives(aCode, sketch) {
-  // Parse out @pjs directive, if any.
-  let dm = new RegExp(/\/\*\s*@pjs\s+((?:[^\*]|\*+[^\*\/])*)\*\//g).exec(aCode);
-
-  if (dm && dm.length === 2) {
-    // masks contents of a JSON to be replaced later
-    // to protect the contents from further parsing
-    let jsonItems = [],
-        directives = dm.splice(1, 2)[0].replace(/\{([\s\S]*?)\}/g, (function() {
-          return function(all, item) {
-            jsonItems.push(item);
-            return "{" + (jsonItems.length-1) + "}";
-          };
-        }())).replace('\n', '').replace('\r', '').split(";");
-
-    for (let i = 0, dl = directives.length; i < dl; i++) {
-      let pair = directives[i].split('=');
-      if (pair && pair.length === 2) {
-        let key = clean(pair[0]),
-            value = clean(pair[1]),
-            list = [];
-        // A few directives require work beyond storying key/value pairings
-        if (key === "preload") {
-          list = value.split(',');
-          // All pre-loaded images will get put in imageCache, keyed on filename
-          for (let j = 0, jl = list.length; j < jl; j++) {
-            let imageName = clean(list[j]);
-            sketch.imageCache.add(imageName);
-          }
-        // fonts can be declared as a string containing a url,
-        // or a JSON object, containing a font name, and a url
-        } else if (key === "font") {
-          list = value.split(",");
-          for (let x = 0, xl = list.length; x < xl; x++) {
-            let fontName = clean(list[x]),
-                index = /^\{(\d*?)\}$/.exec(fontName);
-            // if index is not null, send JSON, otherwise, send string
-            PFont.preloading.add(index ? JSON.parse("{" + jsonItems[index[1]] + "}") : fontName);
-          }
-        } else if (key === "pauseOnBlur") {
-          sketch.options.pauseOnBlur = value === "true";
-        } else if (key === "globalKeyEvents") {
-          sketch.options.globalKeyEvents = value === "true";
-        } else if (key.substring(0, 6) === "param-") {
-          sketch.params[key.substring(6)] = value;
-        } else {
-          sketch.options[key] = value;
-        }
-      }
-    }
+  __post_setup() {
+    this.hooks.postsetup();
   }
 
-  return aCode;
+  __pre_draw() {
+    this.hooks.predraw(this.context);
+  	this.cache.context = this.context;
+  }
+
+  __post_draw() {
+  	this.hooks.postdraw(this.context);
+  }
 }
 
 // removes generics
@@ -215,16 +74,18 @@ function removeGenerics(codeWoStrings) {
 	return codeWoGenerics
 }
 
-// masks parentheses, brackets and braces with '"A5"'
-// where A is the bracket type, and 5 is the index in an array containing all brackets split into atoms
-// 'while(true){}' -> 'while"B1""A2"'
-//
-//  The mapping used is:
-//
-//    braces{} = A
-//    parentheses() = B
-//    brackets[] = C
-//
+/**
+ * masks parentheses, brackets and braces with '"A5"' where A is the bracket type,
+ * and 5 is the index in an array containing all brackets split into atoms:
+ *
+ *   'while(true){}' -> 'while"B1""A2"'
+ *
+ * The mapping used is:
+ *
+ *   braces{} = A
+ *   parentheses() = B
+ *   brackets[] = C
+ */
 function splitToAtoms(code) {
   var atoms = [];
   var items = code.split(/([\{\[\(\)\]\}])/);
@@ -453,7 +314,7 @@ class AstCatchStatement {
   }
 
   toString(replaceContext) {
-    return this.misc.prefix + this.argument.toString();
+    return this.misc.prefix + this.argument.toString(replaceContext);
   }
 }
 
@@ -470,6 +331,9 @@ class AstClass {
   }
 }
 
+/**
+ * convenience module
+ */
 function sortByWeight$1(array) {
   array.sort((a,b) => b.weight - a.weight);
 }
@@ -751,7 +615,6 @@ class AstClassMethod {
 
     var body = this.params.prependMethodArgs(this.body.toString(replaceContext));
     var result = "function " + this.methodId + this.params.toString(replaceContext) + " " + body +"\n";
-    replaceContext = oldContext;
     return result;
   }
 }
@@ -781,7 +644,6 @@ class AstConstructor {
     if(!/\$(superCstr|constr)\b/.test(body)) {
       body = "{\n$superCstr();\n" + body.substring(1);
     }
-    replaceContext = oldContext;
     return prefix + body + "\n";
   }
 }
@@ -909,7 +771,6 @@ class AstFunction {
     }
     var body = this.params.prependMethodArgs(this.body.toString());
     result += this.params + " " + body;
-    replaceContext = oldContext;
     return result;
   }
 }
@@ -948,9 +809,8 @@ class AstInlineObject {
       if(this.members[i].label) {
         result += this.members[i].label + ": ";
       }
-      result += this.members[i].value.toString() + ", ";
+      result += this.members[i].value.toString(replaceContext) + ", ";
     }
-    replaceContext = oldContext;
     return result.substring(0, result.length - 2);
   }
 }
@@ -1120,7 +980,8 @@ class AstMethod {
       return paramNames.hasOwnProperty(subject.name) ? subject.name : oldContext(subject);
     };
 
-    var body = this.params.prependMethodArgs(this.body.toString(replaceContext));
+    var body = this.body.toString(replaceContext);
+    body = this.params.prependMethodArgs(body);
 
     return "function " + this.name + this.params + " " + body + "\n" +
                  "$p." + this.name + " = " + this.name + ";\n" +
@@ -1185,7 +1046,7 @@ class AstPrefixStatement {
   toString(replaceContext) {
     var result = this.misc.prefix;
     if(this.argument !== undefined) {
-      result += this.argument.toString();
+      result += this.argument.toString(replaceContext);
     }
     return result;
   }
@@ -1282,7 +1143,7 @@ class AstSwitchCase {
   }
 
   toString(replaceContext) {
-    return "case " + this.expr + ":";
+    return "case " + this.expr.toString(replaceContext) + ":";
   }
 }
 
@@ -1360,6 +1221,41 @@ class Transformer {
     this.functionsRegex = /\bfunction(?:\s+([A-Za-z_$][\w$]*))?\s*("B\d+")\s*("A\d+")/g;
   }
 
+ /**
+   * ...
+   */
+  generateClassId() {
+    return "class" + (++this.classIdSeed);
+  }
+
+  /**
+   * ...
+   */
+  appendClass(class_, classId, scopeId) {
+    class_.classId = classId;
+    class_.scopeId = scopeId;
+    this.declaredClasses[classId] = class_;
+  }
+
+  /**
+   * ...
+   */
+  getDefaultValueForType(type) {
+    if(type === "int" || type === "float") {
+      return "0";
+    }
+    if(type === "boolean") {
+      return "false";
+    }
+    if(type === "color") {
+      return "0x00000000";
+    }
+    return "null";
+  }
+
+  /**
+   * ...
+   */
   addAtom(text, type) {
     let atoms = this.atoms;
     let lastIndex = atoms.length;
@@ -1367,6 +1263,9 @@ class Transformer {
     return '"' + type + lastIndex + '"';
   }
 
+  /**
+   * ...
+   */
   transformParams(params) {
     let paramsWithoutPars = trim(params.substring(1, params.length - 1));
     let result = [], methodArgsParam = null;
@@ -1384,8 +1283,12 @@ class Transformer {
     return new AstParams(result, methodArgsParam);
   }
 
+  /**
+   * ...
+   */
   transformInlineClass(class_) {
-    let m = new RegExp(/\bnew\s*([A-Za-z_$][\w$]*\s*(?:\.\s*[A-Za-z_$][\w$]*)*)\s*"B\d+"\s*"A(\d+)"/).exec(class_);
+    let inlineClassRegExp = /\bnew\s*([A-Za-z_$][\w$]*\s*(?:\.\s*[A-Za-z_$][\w$]*)*)\s*"B\d+"\s*"A(\d+)"/;
+    let m = new RegExp(inlineClassRegExp).exec(class_);
     let oldClassId = this.currentClassId;
     let newClassId = this.generateClassId();
     this.currentClassId = newClassId;
@@ -1396,12 +1299,20 @@ class Transformer {
     return inlineClass;
   }
 
+  /**
+   * ...
+   */
   transformFunction(class_) {
-    let m = new RegExp(/\b([A-Za-z_$][\w$]*)\s*"B(\d+)"\s*"A(\d+)"/).exec(class_);
+    let functionRegExp = /\b([A-Za-z_$][\w$]*)\s*"B(\d+)"\s*"A(\d+)"/;
+    let m = new RegExp(functionRegExp).exec(class_);
+    let atoms = this.atoms;
     return new AstFunction( m[1] !== "function" ? m[1] : null,
       this.transformParams(atoms[m[2]]), this.transformStatementsBlock(atoms[m[3]]));
   }
 
+  /**
+   * ...
+   */
   transformInlineObject(obj) {
     let members = obj.split(',');
     for(let i=0; i < members.length; ++i) {
@@ -1416,11 +1327,15 @@ class Transformer {
     return new AstInlineObject(members);
   }
 
+  /**
+   * ...
+   */
   expandExpression(expr) {
     if(expr.charAt(0) === '(' || expr.charAt(0) === '[') {
       return expr.charAt(0) + this.expandExpression(expr.substring(1, expr.length - 1)) + expr.charAt(expr.length - 1);
     }
     if(expr.charAt(0) === '{') {
+      // FIXME: TODO: figure out what the proper name for this regexp is
       if(/^\{\s*(?:[A-Za-z_$][\w$]*|'\d+')\s*:/.test(expr)) {
         return "{" + this.addAtom(expr.substring(1, expr.length - 1), 'I') + "}";
       }
@@ -1433,8 +1348,12 @@ class Transformer {
     return trimmed.untrim(result);
   }
 
+  /**
+   * ...
+   */
   transformExpression(expr) {
     let transforms = [];
+    let atoms = this.atoms;
     let s = this.expandExpression(expr);
     s = s.replace(/"H(\d+)"/g, (all, index) => {
       transforms.push(this.transformFunction(atoms[index]));
@@ -1452,6 +1371,9 @@ class Transformer {
     return new AstExpression(s, transforms);
   };
 
+  /**
+   * ...
+   */
   transformVarDefinition(def, defaultTypeValue) {
     let eqIndex = def.indexOf("=");
     let name, value, isDefault;
@@ -1467,19 +1389,9 @@ class Transformer {
     return new AstVarDefinition( trim(name.replace(/(\s*"C\d+")+/g, "")), value, isDefault);
   }
 
-  getDefaultValueForType(type) {
-    if(type === "int" || type === "float") {
-      return "0";
-    }
-    if(type === "boolean") {
-      return "false";
-    }
-    if(type === "color") {
-      return "0x00000000";
-    }
-    return "null";
-  }
-
+  /**
+   * ...
+   */
   transformStatement(statement) {
     if(this.fieldTest.test(statement)) {
       let attrAndType = this.attrAndTypeRegex.exec(statement);
@@ -1493,6 +1405,9 @@ class Transformer {
     return new AstStatement(this.transformExpression(statement));
   }
 
+  /**
+   * ...
+   */
   transformForExpression(expr) {
     let content;
     if (/\bin\b/.test(expr)) {
@@ -1510,7 +1425,11 @@ class Transformer {
       this.transformExpression(content[1]), this.transformExpression(content[2]));
   }
 
+  /**
+   * ...
+   */
   transformInnerClass(class_) {
+    let atoms = this.atoms;
     let m = this.classesRegex.exec(class_); // 1 - attr, 2 - class|int, 3 - name, 4 - extends, 5 - implements, 6 - body
     this.classesRegex.lastIndex = 0;
     let isStatic = m[1].indexOf("static") >= 0;
@@ -1528,6 +1447,9 @@ class Transformer {
     return innerClass;
   }
 
+  /**
+   * ...
+   */
   transformClassMethod(method) {
     let atoms = this.atoms;
     let m = this.methodsRegex.exec(method);
@@ -1538,6 +1460,9 @@ class Transformer {
       this.transformStatementsBlock(body), isStatic );
   }
 
+  /**
+   * ...
+   */
   transformClassField(statement) {
     let attrAndType = this.attrAndTypeRegex.exec(statement);
     let isStatic = attrAndType[1].indexOf("static") >= 0;
@@ -1549,15 +1474,10 @@ class Transformer {
     return new AstClassField(definitions, attrAndType[2], isStatic);
   }
 
-  transformConstructor(cstr) {
-    let m = new RegExp(/"B(\d+)"\s*"A(\d+)"/).exec(cstr);
-    let params = this.transformParams(atoms[m[1]]);
-
-    return new AstConstructor(params, this.transformStatementsBlock(atoms[m[2]]));
-  }
-
-  // This converts constructors into atoms, and adds them to the atoms array.
-  // constructors = G
+  /**
+   * This converts constructors into atoms, and adds them to the atoms array.
+   * constructors = G
+   */
   extractConstructors(code, className) {
     let result = code.replace(this.cstrsRegex, (all, attr, name, params, throws_, body) => {
       if(name !== className) {
@@ -1568,8 +1488,21 @@ class Transformer {
     return result;
   }
 
-  // This converts classes, methods and functions into atoms, and adds them to the atoms array.
-  // classes = E, methods = D and functions = H
+  /**
+   * ...
+   */
+  transformConstructor(cstr) {
+    let atoms = this.atoms;
+    let m = new RegExp(/"B(\d+)"\s*"A(\d+)"/).exec(cstr);
+    let params = this.transformParams(atoms[m[1]]);
+
+    return new AstConstructor(params, this.transformStatementsBlock(atoms[m[2]]));
+  }
+
+  /**
+   * This converts classes, methods and functions into atoms, and adds them to the atoms array.
+   * classes = E, methods = D and functions = H
+   */
   extractClassesAndMethods(code) {
     let s = code;
     s = s.replace(this.classesRegex, all => this.addAtom(all, 'E'));
@@ -1578,7 +1511,11 @@ class Transformer {
     return s;
   }
 
+  /**
+   * ...
+   */
   transformInterfaceBody(body, name, baseInterfaces) {
+    let atoms = this.atoms;
     let declarations = body.substring(1, body.length - 1);
     declarations = this.extractClassesAndMethods(declarations);
     declarations = this.extractConstructors(declarations, name);
@@ -1611,8 +1548,11 @@ class Transformer {
     }
 
     return new AstInterfaceBody(name, baseInterfaceNames, methodsNames, fields, classes, { tail: tail });
-  };
+  }
 
+  /**
+   * ...
+   */
   transformClassBody(body, name, baseName, interfaces) {
     let atoms = this.atoms;
     let declarations = body.substring(1, body.length - 1);
@@ -1632,10 +1572,12 @@ class Transformer {
     let i;
 
     if(baseName !== undefined) {
+      // FIXME: TODO: figure out the proper name for this regexp
       baseClassName = baseName.replace(/^\s*extends\s+([A-Za-z_$][\w$]*\b(?:\s*\.\s*[A-Za-z_$][\w$]*\b)*)\s*$/g, "$1");
     }
 
     if(interfaces !== undefined) {
+      // FIXME: TODO: figure out the proper name for this regexp
       interfacesNames = interfaces.replace(/^\s*implements\s+(.+?)\s*$/g, "$1").split(/\s*,\s*/g);
     }
 
@@ -1659,21 +1601,15 @@ class Transformer {
 
     return new AstClassBody(name, baseClassName, interfacesNames, functions, methods, fields, cstrs,
       classes, { tail: tail });
-  };
-
-  generateClassId() {
-    return "class" + (++this.classIdSeed);
   }
 
-  appendClass(class_, classId, scopeId) {
-    class_.classId = classId;
-    class_.scopeId = scopeId;
-    this.declaredClasses[classId] = class_;
-  }
-
+  /**
+   * ...
+   */
   transformGlobalClass(class_) {
     let m = this.classesRegex.exec(class_); // 1 - attr, 2 - class|int, 3 - name, 4 - extends, 5 - implements, 6 - body
     this.classesRegex.lastIndex = 0;
+    let atoms = this.atoms;
     let body = this.atoms[getAtomIndex(m[6])];
     let oldClassId = this.currentClassId;
     let newClassId = this.generateClassId();
@@ -1689,6 +1625,9 @@ class Transformer {
     return globalClass;
   }
 
+  /**
+   * ...
+   */
   transformGlobalMethod(method) {
     let atoms = this.atoms;
     let m = this.methodsRegex.exec(method);
@@ -1698,6 +1637,9 @@ class Transformer {
       this.transformStatementsBlock(atoms[getAtomIndex(m[6])]));
   }
 
+  /**
+   * ...
+   */
   transformStatements(statements) {
     let nextStatement = new RegExp(/\b(catch|for|if|switch|while|with)\s*"B(\d+)"|\b(do|else|finally|return|throw|try|break|continue)\b|("[ADEH](\d+)")|\b(case)\s+([^:]+):|\b([A-Za-z_$][\w$]*\s*:)|(;)/g);
     let atoms = this.atoms;
@@ -1760,6 +1702,9 @@ class Transformer {
     return res;
   }
 
+  /**
+   * ...
+   */
   transformStatementsBlock(block) {
     let content = trimSpaces$1(block.substring(1, block.length - 1));
     return new AstStatementsBlock(this.transformStatements(content.middle));
@@ -1839,9 +1784,31 @@ function generateMetadata(declaredClasses) {
   }
 }
 
+// helper function
+function removeDependentAndCheck(tocheck, targetId, from) {
+  let dependsOn = tocheck[targetId];
+  if (!dependsOn) {
+    return false; // no need to process
+  }
+  let i = dependsOn.indexOf(from);
+  if (i < 0) {
+    return false;
+  }
+  dependsOn.splice(i, 1);
+  if (dependsOn.length > 0) {
+    return false;
+  }
+  delete tocheck[targetId];
+  return true;
+}
+
+/**
+ * ...documentation goes here...
+ */
 function setWeight(declaredClasses) {
   let queue = [], tocheck = {};
   let id, scopeId, class_;
+
   // queue most inner and non-inherited
   for (id in declaredClasses) {
     if (declaredClasses.hasOwnProperty(id)) {
@@ -1865,30 +1832,15 @@ function setWeight(declaredClasses) {
       }
     }
   }
-  function removeDependentAndCheck(targetId, from) {
-    let dependsOn = tocheck[targetId];
-    if (!dependsOn) {
-      return false; // no need to process
-    }
-    let i = dependsOn.indexOf(from);
-    if (i < 0) {
-      return false;
-    }
-    dependsOn.splice(i, 1);
-    if (dependsOn.length > 0) {
-      return false;
-    }
-    delete tocheck[targetId];
-    return true;
-  }
+
   while (queue.length > 0) {
     id = queue.shift();
     class_ = declaredClasses[id];
-    if (class_.scopeId && removeDependentAndCheck(class_.scopeId, class_)) {
+    if (class_.scopeId && removeDependentAndCheck(tocheck, class_.scopeId, class_)) {
       queue.push(class_.scopeId);
       declaredClasses[class_.scopeId].weight = class_.weight + 1;
     }
-    if (class_.base && removeDependentAndCheck(class_.base.classId, class_)) {
+    if (class_.base && removeDependentAndCheck(tocheck, class_.base.classId, class_)) {
       queue.push(class_.base.classId);
       class_.base.weight = class_.weight + 1;
     }
@@ -1896,7 +1848,7 @@ function setWeight(declaredClasses) {
       let i, l;
       for (i = 0, l = class_.interfaces.length; i < l; ++i) {
         if (!class_.interfaces[i] ||
-            !removeDependentAndCheck(class_.interfaces[i].classId, class_)) {
+            !removeDependentAndCheck(tocheck, class_.interfaces[i].classId, class_)) {
           continue;
         }
         queue.push(class_.interfaces[i].classId);
@@ -1904,6 +1856,7 @@ function setWeight(declaredClasses) {
       }
     }
   }
+
 }
 
 /**
@@ -2288,9 +2241,10 @@ class Ast {
     let result = [
       '// this code was autogenerated from PJS',
       '(function($p) {',
-      contextMappedString(classes, replaceContext, ''),
-      contextMappedString(otherStatements, replaceContext, ''),
-      '})'
+      '  let sketch = new $p.Sketch({{ SKETCH_ID_PLACEHOLDER }}, $p);',
+//      contextMappedString(classes, replaceContext, ''),
+//      contextMappedString(otherStatements, replaceContext, ''),
+      '}(Processing))'
     ].join('\n');
 
     return result;
@@ -2379,6 +2333,8 @@ function transformMain(code) {
   return ast;
 }
 
+// L/RTrim, also removing any surrounding double quotes (e.g., just take string contents).
+
 // replaces strings and regexs keyed by index with an array of strings
 function injectStrings(code, strings) {
   return code.replace(/'(\d+)'/g, function(all, index) {
@@ -2390,65 +2346,173 @@ function injectStrings(code, strings) {
   });
 }
 
-function parseProcessing(code) {
-  // run the conversion from source to AST
-  let ast = transformMain(code);
+var staticSketchList = [];
 
-  // convert AST to processing.js source code
-  let pjsSourceCode = ast.toString();
-  let strings = ast.getSourceStrings();
+/**
+ * The master library object.
+ */
+var Processing = {
 
-  // remove empty extra lines with space
-  pjsSourceCode = pjsSourceCode.replace(/\s*\n(?:[\t ]*\n)+/g, "\n\n");
+  /**
+   * load a set of files that comprise a sketch
+   */
+  async load(urilist) {
+    let set = {};
+    urilist.forEach(k => set[k] = false);
 
-  // convert character codes to characters
-  pjsSourceCode = pjsSourceCode.replace(/__x([0-9A-F]{4})/g, function(all, hexCode) {
-    return String.fromCharCode(parseInt(hexCode,16));
-  });
+    // return promise that resolves when all files have been loaded
+    return new Promise(function(resolve, error) {
+      // ...
+    });
+  },
 
-  // inject string content
-  pjsSourceCode = injectStrings(pjsSourceCode, strings);
+  /**
+   * aggregrate a set of resolved files into a single file
+   */
+  aggregate(sources) {
+  	// return promise that resolves when all filedata has been aggregated
+  },
 
-  return pjsSourceCode;
+  /**
+   * run the conversion from source to AST
+   */
+  async parse(sourceCode) {
+    return transformMain(sourceCode);
+  },
+
+  /**
+   * convert an AST into sketch code
+   */
+  async convert(ast) {
+    // convert AST to processing.js source code
+    let pjsSourceCode = ast.toString();
+    let strings = ast.getSourceStrings();
+    // remove empty extra lines with space
+    pjsSourceCode = pjsSourceCode.replace(/\s*\n(?:[\t ]*\n)+/g, "\n\n");
+    // convert character codes to characters
+    pjsSourceCode = pjsSourceCode.replace(/__x([0-9A-F]{4})/g, function(all, hexCode) {
+      return String.fromCharCode(parseInt(hexCode,16));
+    });
+    // inject string content
+    return injectStrings(pjsSourceCode, strings);
+  },
+
+  /**
+   * inject a sketch into the page
+   */
+  injectSketch(sketchSourceCode, document) {
+    if (typeof document === "undefined") {
+      throw new Error("The `document` namespace could not be found for injecting a sketch");
+    }
+
+    let id = staticSketchList.length;
+    let old = document.querySelector(`#processing-sketch-${id}`);
+    if (old) {
+      return;
+    }
+    let script = document.createElement("script");
+    script.id = `processing-sketch-${id}`;
+    script.textContent = sketchSourceCode.replace("{{ SKETCH_ID_PLACEHOLDER }}", id);
+    script.async = true;
+    let head = document.querySelector("head");
+    return head.appendChild(script);
+
+    // =========================================================
+    //
+    //   This will inject the sketch, if the page permits that,
+    //   which will create an object that bootstraps by calling
+    //   Processing.onSketchLoad(), found below, to sort out
+    //   the object and functions bindings.
+    //
+    // =========================================================
+  },
+
+  /**
+   *
+   */
+  onSketchLoad(sketch) {
+    let id = sketch.id;
+    staticSketchList[id] = sketch;
+    console.log("received Sketch");
+    console.log(sketch);
+
+    // ... code goes here ...
+  },
+
+  /**
+   * start running a sketch
+   */
+  execute(sketch, target, hooks) {
+    sketch.__pre__setup(hooks);
+    sketch.setup();
+    sketch.__post__setup();
+
+    sketch.__pre_draw();
+    sketch.draw();
+    sketch.__post_draw();
+  },
+
+  /**
+   * Effect a complete sketch load
+   */
+  run(urilist, target, hooks) {
+   	if (!urilist) {
+  		throw new Error("No source code supplied to build a sketch with.");
+  	}
+
+   	if (!target) {
+  		throw new Error("No target element supplied for the sketch to run in.");
+  	}
+
+    Processing.load(urilist)
+    .then( set => Processing.aggregate(set))
+    .then( source => Processing.parse(source))
+    .then( ast => Processing.convert(ast))
+    .then( sketchSource => Processing.injectSketch(sketchSource))
+    .catch( error => {
+      if (hooks.onerror) {
+        hooks.onerror(error);
+      } else {
+        throw error;
+      }
+    });
+  }
+};
+
+Processing.Sketch = Sketch;
+
+//import document from "./shims/document";
+
+// Some simple code
+var code = [
+`  import test.something;`,
+``,
+`  class Cake {`,
+`    int a = 0;`,
+`    boolean test(boolean okay) {`,
+`      return true;`,
+`    }`,
+`    static boolean test2(boolean okay) {`,
+`      return false;`,
+`    }`,
+`  }`,
+``,
+`  void setup() {`,
+`    Cake c = new Cake();`,
+`    noLoop();`,
+`  }`,
+``,
+`  void draw() {`,
+`    background(255);`,
+`  }`
+].join('\n');
+
+if (typeof window !== "undefined") {
+	window.Processing = Processing;
+
+	// See if Processing can turn it into a bindable script
+	Processing.parse(code)
+	          .then(ast => Processing.convert(ast))
+	          .then(res => Processing.injectSketch(res, document))
+	          .catch(error => console.error(error));
 }
-
-// ==================================================================
-//
-//  Syntax converter for Processing syntax (java-like) to JavaScript
-//
-// ==================================================================
-
-function convert(processingSourceCode) {
-  let sketch = new Sketch();
-  let pureSourceCode = processPreDirectives(processingSourceCode, sketch);
-  let javaScriptSourceCode = parseProcessing(pureSourceCode);
-  sketch.sourceCode = javaScriptSourceCode;
-  return sketch;
-}
-
-// SIMPLE CODE TEST
-
-var converted = convert(`
-  import test.something; \
-\
-  class Cake { \
-    int a = 0; \
-    boolean test(boolean okay) { \
-      return true; \
-    } \
-    static boolean test2(boolean okay) { \
-      return false; \
-    } \
-  } \
-\
-  void setup() { \
-    Cake c = new Cake(); \
-    noLoop(); \
-  } \
-\
-  void draw() { \
-    background(255); \
-  } \
-`);
-
-console.log(converted.sourceCode);

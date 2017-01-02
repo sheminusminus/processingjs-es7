@@ -20,7 +20,8 @@ export default class AstMethod {
       return paramNames.hasOwnProperty(subject.name) ? subject.name : oldContext(subject);
     };
 
-    var body = this.params.prependMethodArgs(this.body.toString(replaceContext));
+    var body = this.body.toString(replaceContext);
+    body = this.params.prependMethodArgs(body);
 
     return "function " + this.name + this.params + " " + body + "\n" +
                  "$p." + this.name + " = " + this.name + ";\n" +

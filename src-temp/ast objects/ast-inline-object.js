@@ -20,9 +20,8 @@ export default class AstInlineObject {
       if(this.members[i].label) {
         result += this.members[i].label + ": ";
       }
-      result += this.members[i].value.toString() + ", ";
+      result += this.members[i].value.toString(replaceContext) + ", ";
     }
-    replaceContext = oldContext;
     return result.substring(0, result.length - 2);
   }
 };

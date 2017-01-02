@@ -4,6 +4,6 @@ export default class AstSwitchCase {
   }
 
   toString(replaceContext) {
-    return "case " + this.expr + ":";
+    return "case " + this.expr.toString(replaceContext) + ":";
   }
 };

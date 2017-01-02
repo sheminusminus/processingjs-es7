@@ -5,6 +5,6 @@ export default class AstCatchStatement {
   }
 
   toString(replaceContext) {
-    return this.misc.prefix + this.argument.toString();
+    return this.misc.prefix + this.argument.toString(replaceContext);
   }
 };

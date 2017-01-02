@@ -24,7 +24,6 @@ export default class AstClassMethod {
 
     var body = this.params.prependMethodArgs(this.body.toString(replaceContext));
     var result = "function " + this.methodId + this.params.toString(replaceContext) + " " + body +"\n";
-    replaceContext = oldContext;
     return result;
   }
 };

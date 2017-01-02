@@ -23,7 +23,6 @@ export default class AstConstructor {
     if(!/\$(superCstr|constr)\b/.test(body)) {
       body = "{\n$superCstr();\n" + body.substring(1);
     }
-    replaceContext = oldContext;
     return prefix + body + "\n";
   }
 };
