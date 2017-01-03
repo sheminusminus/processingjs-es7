@@ -1,9 +1,13 @@
 export default class JavaBaseClass {
 
 	// void -> String
-	toString() { return "JavaBaseClass"; }
+	toString() {
+		return "JavaBaseClass";
+	}
 
 	// void -> integer
-	hashCode() { return 0; }
+	hashCode() {
+		return 0;
+	}
 
-}
+};

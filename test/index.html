@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+  <head>
+  	<meta charset="utf-8">
+  	<title>Processingjs-ES7 test</title>
+  </head>
+  <body>
+    <h1>Processingjs-ES7 test</h1>
+    <script src="processing.js"></script>
+
+    <script>
+    let TestAPI = {
+      getData() {
+        return ['a','b','c','d','e'];
+      }
+    }
+    </script>
+
+    <script type="text/processing" id="source">
+  	  import TestAPI;
+
+  	  class Cake {
+        int a = 0;
+        boolean test(boolean okay) {
+          return true;
+  	    }
+  	    static boolean test2(boolean okay) {
+  	      return false;
+  	    }
+  	  }
+
+      void setup() {
+  	    Cake c = new Cake();
+        ArrayList al = new ArrayList();
+        Char c = new Char('w');
+  	    return al;
+        //noLoop();
+  	  }
+
+      void draw() {
+  	    background(255);
+  	  }
+
+      void test() {
+        println("this is a test");
+      }
+    </script>
+
+    <script>
+    	var code = document.getElementById('source').textContent;
+    	Processing.parse(code)
+    	          .then(ast => {
+                  console.log(ast);
+                  return Processing.convert(ast);
+                })
+    	          .then(res => Processing.injectSketch(res, document))
+    	          .catch(error => console.error(error));
+    </script>
+  </body>
+</html>

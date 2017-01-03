@@ -4,8 +4,9 @@
   "description": "Processing.js using ES7 ",
   "main": "processing.js",
   "scripts": {
+    "clear": "node ./utils/clear",
     "build": "rollup -c",
-    "test": "cls && rollup src/test.js -o test.js && node --harmony-async-await test"
+    "test": "npm run clear && npm run build && shx cp processing.js test/processing.js && http-server ./test"
   },
   "keywords": [
     "processingjs"
@@ -13,5 +14,8 @@
   "author": "Pomax",
   "dependencies": {
     "rollup": "^0.38.1"
+  },
+  "devDependencies": {
+    "rollup-plugin-json": "^2.1.0"
   }
 }

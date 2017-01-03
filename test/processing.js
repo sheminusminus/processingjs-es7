@@ -1,54 +1,958 @@
+(function (global, factory) {
+    typeof exports === 'object' && typeof module !== 'undefined' ? module.exports = factory() :
+    typeof define === 'function' && define.amd ? define(factory) :
+    (global.Processing = factory());
+}(this, (function () { 'use strict';
+
 /**
  * Parser to turn string data into an AST
  */
 
+/**
+ * Processing.js environment constants
+ */
+const PConstants = {
+    X: 0,
+    Y: 1,
+    Z: 2,
+
+    R: 3,
+    G: 4,
+    B: 5,
+    A: 6,
+
+    U: 7,
+    V: 8,
+
+    NX: 9,
+    NY: 10,
+    NZ: 11,
+
+    EDGE: 12,
+
+    // Stroke
+    SR: 13,
+    SG: 14,
+    SB: 15,
+    SA: 16,
+
+    SW: 17,
+
+    // Transformations (2D and 3D)
+    TX: 18,
+    TY: 19,
+    TZ: 20,
+
+    VX: 21,
+    VY: 22,
+    VZ: 23,
+    VW: 24,
+
+    // Material properties
+    AR: 25,
+    AG: 26,
+    AB: 27,
+
+    DR: 3,
+    DG: 4,
+    DB: 5,
+    DA: 6,
+
+    SPR: 28,
+    SPG: 29,
+    SPB: 30,
+
+    SHINE: 31,
+
+    ER: 32,
+    EG: 33,
+    EB: 34,
+
+    BEEN_LIT: 35,
+
+    VERTEX_FIELD_COUNT: 36,
+
+    // Renderers
+    P2D:    1,
+    JAVA2D: 1,
+    WEBGL:  2,
+    P3D:    2,
+    OPENGL: 2,
+    PDF:    0,
+    DXF:    0,
+
+    // Platform IDs
+    OTHER:   0,
+    WINDOWS: 1,
+    MAXOSX:  2,
+    LINUX:   3,
+
+    EPSILON: 0.0001,
+
+    MAX_FLOAT:  3.4028235e+38,
+    MIN_FLOAT: -3.4028235e+38,
+    MAX_INT:    2147483647,
+    MIN_INT:   -2147483648,
+
+    PI:         Math.PI,
+    TWO_PI:     2 * Math.PI,
+    TAU:        2 * Math.PI,
+    HALF_PI:    Math.PI / 2,
+    THIRD_PI:   Math.PI / 3,
+    QUARTER_PI: Math.PI / 4,
+
+    DEG_TO_RAD: Math.PI / 180,
+    RAD_TO_DEG: 180 / Math.PI,
+
+    WHITESPACE: " \t\n\r\f\u00A0",
+
+    // Color modes
+    RGB:   1,
+    ARGB:  2,
+    HSB:   3,
+    ALPHA: 4,
+    CMYK:  5,
+
+    // Image file types
+    TIFF:  0,
+    TARGA: 1,
+    JPEG:  2,
+    GIF:   3,
+
+    // Filter/convert types
+    BLUR:      11,
+    GRAY:      12,
+    INVERT:    13,
+    OPAQUE:    14,
+    POSTERIZE: 15,
+    THRESHOLD: 16,
+    ERODE:     17,
+    DILATE:    18,
+
+    // Blend modes
+    REPLACE:    0,
+    BLEND:      1 << 0,
+    ADD:        1 << 1,
+    SUBTRACT:   1 << 2,
+    LIGHTEST:   1 << 3,
+    DARKEST:    1 << 4,
+    DIFFERENCE: 1 << 5,
+    EXCLUSION:  1 << 6,
+    MULTIPLY:   1 << 7,
+    SCREEN:     1 << 8,
+    OVERLAY:    1 << 9,
+    HARD_LIGHT: 1 << 10,
+    SOFT_LIGHT: 1 << 11,
+    DODGE:      1 << 12,
+    BURN:       1 << 13,
+
+    // Color component bit masks
+    ALPHA_MASK: 0xff000000,
+    RED_MASK:   0x00ff0000,
+    GREEN_MASK: 0x0000ff00,
+    BLUE_MASK:  0x000000ff,
+
+    // Projection matrices
+    CUSTOM:       0,
+    ORTHOGRAPHIC: 2,
+    PERSPECTIVE:  3,
+
+    // Shapes
+    POINT:          2,
+    POINTS:         2,
+    LINE:           4,
+    LINES:          4,
+    TRIANGLE:       8,
+    TRIANGLES:      9,
+    TRIANGLE_STRIP: 10,
+    TRIANGLE_FAN:   11,
+    QUAD:           16,
+    QUADS:          16,
+    QUAD_STRIP:     17,
+    POLYGON:        20,
+    PATH:           21,
+    RECT:           30,
+    ELLIPSE:        31,
+    ARC:            32,
+    SPHERE:         40,
+    BOX:            41,
+
+    // Arc drawing modes
+    //OPEN:          1, // shared with Shape closing modes
+    CHORD:           2,
+    PIE:             3,
+
+
+    GROUP:          0,
+    PRIMITIVE:      1,
+    //PATH:         21, // shared with Shape PATH
+    GEOMETRY:       3,
+
+    // Shape Vertex
+    VERTEX:        0,
+    BEZIER_VERTEX: 1,
+    CURVE_VERTEX:  2,
+    BREAK:         3,
+    CLOSESHAPE:    4,
+
+    // Shape closing modes
+    OPEN:  1,
+    CLOSE: 2,
+
+    // Shape drawing modes
+    CORNER:          0, // Draw mode convention to use (x, y) to (width, height)
+    CORNERS:         1, // Draw mode convention to use (x1, y1) to (x2, y2) coordinates
+    RADIUS:          2, // Draw mode from the center, and using the radius
+    CENTER_RADIUS:   2, // Deprecated! Use RADIUS instead
+    CENTER:          3, // Draw from the center, using second pair of values as the diameter
+    DIAMETER:        3, // Synonym for the CENTER constant. Draw from the center
+    CENTER_DIAMETER: 3, // Deprecated! Use DIAMETER instead
+
+    // Text vertical alignment modes
+    BASELINE: 0,   // Default vertical alignment for text placement
+    TOP:      101, // Align text to the top
+    BOTTOM:   102, // Align text from the bottom, using the baseline
+
+    // UV Texture coordinate modes
+    NORMAL:     1,
+    NORMALIZED: 1,
+    IMAGE:      2,
+
+    // Text placement modes
+    MODEL: 4,
+    SHAPE: 5,
+
+    // Stroke modes
+    SQUARE:  'butt',
+    ROUND:   'round',
+    PROJECT: 'square',
+    MITER:   'miter',
+    BEVEL:   'bevel',
+
+    // Lighting modes
+    AMBIENT:     0,
+    DIRECTIONAL: 1,
+    //POINT:     2, Shared with Shape constant
+    SPOT:        3,
+
+    // Key constants
+
+    // Both key and keyCode will be equal to these values
+    BACKSPACE: 8,
+    TAB:       9,
+    ENTER:     10,
+    RETURN:    13,
+    ESC:       27,
+    DELETE:    127,
+    CODED:     0xffff,
+
+    // p.key will be CODED and p.keyCode will be this value
+    SHIFT:     16,
+    CONTROL:   17,
+    ALT:       18,
+    CAPSLK:    20,
+    PGUP:      33,
+    PGDN:      34,
+    END:       35,
+    HOME:      36,
+    LEFT:      37,
+    UP:        38,
+    RIGHT:     39,
+    DOWN:      40,
+    F1:        112,
+    F2:        113,
+    F3:        114,
+    F4:        115,
+    F5:        116,
+    F6:        117,
+    F7:        118,
+    F8:        119,
+    F9:        120,
+    F10:       121,
+    F11:       122,
+    F12:       123,
+    NUMLK:     144,
+    META:      157,
+    INSERT:    155,
+
+    // Cursor types
+    ARROW:    'default',
+    CROSS:    'crosshair',
+    HAND:     'pointer',
+    MOVE:     'move',
+    TEXT:     'text',
+    WAIT:     'wait',
+    NOCURSOR: "url('data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='), auto",
+
+    // Hints
+    DISABLE_OPENGL_2X_SMOOTH:     1,
+    ENABLE_OPENGL_2X_SMOOTH:     -1,
+    ENABLE_OPENGL_4X_SMOOTH:      2,
+    ENABLE_NATIVE_FONTS:          3,
+    DISABLE_DEPTH_TEST:           4,
+    ENABLE_DEPTH_TEST:           -4,
+    ENABLE_DEPTH_SORT:            5,
+    DISABLE_DEPTH_SORT:          -5,
+    DISABLE_OPENGL_ERROR_REPORT:  6,
+    ENABLE_OPENGL_ERROR_REPORT:  -6,
+    ENABLE_ACCURATE_TEXTURES:     7,
+    DISABLE_ACCURATE_TEXTURES:   -7,
+    HINT_COUNT:                  10,
+
+    // PJS defined constants
+    SINCOS_LENGTH:      720,       // every half degree
+    PRECISIONB:         15,        // fixed point precision is limited to 15 bits!!
+    PRECISIONF:         1 << 15,
+    PREC_MAXVAL:        (1 << 15) - 1,
+    PREC_ALPHA_SHIFT:   24 - 15,
+    PREC_RED_SHIFT:     16 - 15,
+    NORMAL_MODE_AUTO:   0,
+    NORMAL_MODE_SHAPE:  1,
+    NORMAL_MODE_VERTEX: 2,
+    MAX_LIGHTS:         8
+};
+
+var PConstants$1 = { PConstants };
+
+/**
+ * Returns Java equals() result for two objects. If the first object
+ * has the "equals" function, it preforms the call of this function.
+ * Otherwise the method uses the JavaScript === operator.
+ *
+ * @param {Object} obj          The first object.
+ * @param {Object} other        The second object.
+ *
+ * @returns {boolean}           true if the objects are equal.
+ */
+function virtEquals(obj, other) {
+  if (obj === null || other === null) {
+    return (obj === null) && (other === null);
+  }
+  if (typeof (obj) === "string") {
+    return obj === other;
+  }
+  if (typeof(obj) !== "object") {
+    return obj === other;
+  }
+  if (obj.equals instanceof Function) {
+    return obj.equals(other);
+  }
+  return obj === other;
+}
+
+/**
+ * Returns Java hashCode() result for the object. If the object has the "hashCode" function,
+ * it preforms the call of this function. Otherwise it uses/creates the "$id" property,
+ * which is used as the hashCode.
+ *
+ * @param {Object} obj          The object.
+ * @returns {int}               The object's hash code.
+ */
+
+class Iterator {
+  constructor(array) {
+    this.index = -1;
+    this.array = array;
+  }
+
+  hasNext() {
+    return (this.index + 1) < this.array.length;
+  }
+
+  next() {
+    return this.array[++this.index];
+  }
+
+  remove() {
+    this.array.splice(this.index--, 1);
+  }
+}
+
 class JavaBaseClass {
 
 	// void -> String
-	toString() { return "JavaBaseClass"; }
+	toString() {
+		return "JavaBaseClass";
+	}
 
 	// void -> integer
-	hashCode() { return 0; }
+	hashCode() {
+		return 0;
+	}
 
 }
 
-var noop = () => {};
-var emptyhooks = {
-  presetup: noop,
-  postsetup: noop,
-  predraw: noop,
-  postdraw: noop,
-};
+/**
+ * An ArrayList stores a variable number of objects.
+ *
+ * @param {int} initialCapacity optional defines the initial capacity of the list, it's empty by default
+ *
+ * @returns {ArrayList} new ArrayList object
+ */
+
+
+class ArrayList extends JavaBaseClass {
+  constructor(a) {
+    super();
+    this.array = [];
+    if (a && a.toArray) {
+      this.array = a.toArray();
+    }
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.get() Returns the element at the specified position in this list.
+   *
+   * @param {int} i index of element to return
+   *
+   * @returns {Object} the element at the specified position in this list.
+   */
+  get(i) {
+    return this.array[i];
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.contains() Returns true if this list contains the specified element.
+   *
+   * @param {Object} item element whose presence in this List is to be tested.
+   *
+   * @returns {boolean} true if the specified element is present; false otherwise.
+   */
+  contains(item) {
+    return this.indexOf(item)>-1;
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.indexOf() Returns the position this element takes in the list, or -1 if the element is not found.
+   *
+   * @param {Object} item element whose position in this List is to be tested.
+   *
+   * @returns {int} the list position that the first match for this element holds in the list, or -1 if it is not in the list.
+   */
+  indexOf(item) {
+    let array = this.array;
+    for (let i = 0, len = array.length; i < len; ++i) {
+      if (virtEquals(item, array[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.lastIndexOf() Returns the index of the last occurrence of the specified element in this list,
+   * or -1 if this list does not contain the element. More formally, returns the highest index i such that
+   * (o==null ? get(i)==null : o.equals(get(i))), or -1 if there is no such index.
+   *
+   * @param {Object} item element to search for.
+   *
+   * @returns {int} the index of the last occurrence of the specified element in this list, or -1 if this list does not contain the element.
+   */
+  lastIndexOf(item) {
+    let array = this.array;
+    for (let i = array.length-1; i >= 0; --i) {
+      if (virtEquals(item, array[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.add() Adds the specified element to this list.
+   *
+   * @param {int}    index  optional index at which the specified element is to be inserted
+   * @param {Object} object element to be added to the list
+   */
+  add(index, object) {
+    let array = this.array;
+    // add(Object)
+    if (!object) {
+      object = index;
+      return array.push(object);
+    }
+    // add(i, Object)
+    if (typeof index === 'number') {
+      if (index < 0) {
+        throw new Error(`ArrayList.add(index,Object): index cannot be less than zero (found ${number}).`);
+      }
+      if (index >= array.length) {
+        throw new Error("ArrayList.add(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
+      }
+      return array.splice(index, 0, arguments[1]);
+    }
+    throw(`ArrayList.add(index,Object): index is not a number (found type ${typeof index} instead).`);
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.addAll(collection) appends all of the elements in the specified
+   * Collection to the end of this list, in the order that they are returned by
+   * the specified Collection's Iterator.
+   *
+   * When called as addAll(index, collection) the elements are inserted into
+   * this list at the position indicated by index.
+   *
+   * @param {index} Optional; specifies the position the colletion should be inserted at
+   * @param {collection} Any iterable object (ArrayList, HashMap.keySet(), etc.)
+   * @throws out of bounds error for negative index, or index greater than list size.
+   */
+  addAll(index, collection) {
+    let iterator;
+    let array = this.array;
+    // addAll(Collection)
+    if (!collection) {
+      collection = index;
+      iterator = new ObjectIterator(collection);
+      while (iterator.hasNext()) {
+        array.push(iterator.next());
+      }
+      return;
+    }
+    // addAll(int, Collection)
+    if (typeof index === "number") {
+      if (index < 0) {
+        throw new Error(`ArrayList.addAll(index,Object): index cannot be less than zero (found ${number}).`);
+      }
+      if (index >= array.length) {
+        throw new Error("ArrayList.addAll(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
+      }
+      iterator = new ObjectIterator(collection);
+      while (iterator.hasNext()) {
+        array.splice(index++, 0, iterator.next());
+      }
+      return;
+    }
+    throw(`ArrayList.addAll(index,collection): index is not a number (found type ${typeof index} instead).`);
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.set() Replaces the element at the specified position in this list with the specified element.
+   *
+   * @param {int}    index  index of element to replace
+   * @param {Object} object element to be stored at the specified position
+   */
+  set(index, object) {
+    let array = this.array;
+    if (!object) {
+      throw new Error(`ArrayList.set(index,Object): missing object argument.`);
+    }
+    if (typeof index === 'number') {
+      if (index < 0) {
+        throw new Error(`ArrayList.set(index,Object): index cannot be less than zero (found ${number}).`);
+      }
+      if (index >= array.length) {
+        throw new Error("ArrayList.set(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
+      }
+      return array.splice(index, 1, object);
+    }
+    throw(`ArrayList.set(index,Object): index is not a number (found type ${typeof index} instead).`);
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.size() Returns the number of elements in this list.
+   *
+   * @returns {int} the number of elements in this list
+   */
+  size() {
+    return this.array.length;
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.clear() Removes all of the elements from this list. The list will be empty after this call returns.
+   */
+  clear() {
+    this.array = [];
+  };
+
+  /**
+   * @member ArrayList
+   * ArrayList.remove() Removes an element either based on index, if the argument is a number, or
+   * by equality check, if the argument is an object.
+   *
+   * @param {int|Object} item either the index of the element to be removed, or the element itself.
+   *
+   * @returns {Object|boolean} If removal is by index, the element that was removed, or null if nothing was removed. If removal is by object, true if removal occurred, otherwise false.
+   */
+  remove(item) {
+    if (typeof item === 'number') {
+      return array.splice(item, 1)[0];
+    }
+    item = this.indexOf(item);
+    if (item > -1) {
+      array.splice(item, 1);
+      return true;
+    }
+    return false;
+  };
+
+   /**
+   * @member ArrayList
+   * ArrayList.removeAll Removes from this List all of the elements from
+   * the current ArrayList which are present in the passed in paramater ArrayList 'c'.
+   * Shifts any succeeding elements to the left (reduces their index).
+   *
+   * @param {ArrayList} the ArrayList to compare to the current ArrayList
+   *
+   * @returns {boolean} true if the ArrayList had an element removed; false otherwise
+   */
+  removeAll(other) {
+    let oldlist = this.array;
+    this.clear();
+    // For every item that exists in the original ArrayList and not in the 'other' ArrayList
+    // copy it into the empty 'this' ArrayList to create the new 'this' Array.
+    oldlist.forEach( (item,i) => {
+      if (!other.contains(item)) {
+        this.add(x++, item);
+      }
+    });
+    return (this.size() < newList.size());
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.isEmpty() Tests if this list has no elements.
+   *
+   * @returns {boolean} true if this list has no elements; false otherwise
+   */
+  isEmpty() {
+    return this.array.length === 0;
+  };
+
+  /**
+   * @member ArrayList
+   * ArrayList.clone() Returns a shallow copy of this ArrayList instance. (The elements themselves are not copied.)
+   *
+   * @returns {ArrayList} a clone of this ArrayList instance
+   */
+  clone() {
+    return new ArrayList(this);
+  };
+
+  /**
+   * @member ArrayList
+   * ArrayList.toArray() Returns an array containing all of the elements in this list in the correct order.
+   *
+   * @returns {Object[]} Returns an array containing all of the elements in this list in the correct order
+   */
+  toArray() {
+    return this.array.slice();
+  };
+
+  /**
+   * FIXME: TODO: add missing documentation
+   */
+  iterator() {
+    return new Iterator(this.array);
+  }
+
+  /**
+   * toString override
+   */
+  toString() {
+    return `[${ this.array.map(e => e.toString()).join(',') }]`;
+  }
+}
+
+class Char {
+  constructor(chr) {
+    let type = typeof chr;
+    if (type === 'string' && chr.length === 1) {
+      this.code = chr.charCodeAt(0);
+    } else if (type === 'number') {
+      this.code = chr;
+    } else if (chr instanceof Char) {
+      this.code = chr.code;
+    } else {
+      this.code = NaN;
+    }
+  };
+
+  toString() {
+    return String.fromCharCode(this.code);
+  }
+
+  valueOf() {
+    return this.code;
+  }
+}
 
 /**
- * The actual sketch classs
+ * The "default scope" is effectively the Processing API, which is then
+ * extended with a user's own sketch code.
+ *
+ * Changing of the prototype protects internal Processing code from
+ * the changes in defaultScope [FIXME: TODO: what did we mean by this?]
  */
-class Sketch extends JavaBaseClass {
-  constructor(id, $p) {
-    super();
-    this.id = id;
-    setTimeout( () => {
-      $p.onSketchLoad(this);
-    }, 1);
+
+// This thing needs a lot of work...
+//import HashMap from "./Processing Objects/HashMap"
+
+// import PFont from "./Processing Objects/PFont"
+// import PMatrix2D from "./Processing Objects/PMatrix2D"
+// import PMatrix3D from "./Processing Objects/PMatrix3D"
+// import PShape from "./Processing Objects/PShape"
+// import PShapeSVG from "./Processing Objects/PShapeSVG"
+// import PVector from "./Processing Objects/PVector"
+// import webcolors from "./Processing Objects/webcolors"
+// import XMLAttribute from "./Processing Objects/XMLAttribute"
+// import XMLElement from "./Processing Objects/XMLElement"
+
+let defaultScopes = {
+  ArrayList,
+  Char,
+  Character: Char,
+  //HashMap
+};
+
+// Due to the fact that PConstants is a massive list of values,
+// we can't cleanly set up this "inheritance" using ES6 classes.
+let DefaultScope = function DefaultScope() {};
+DefaultScope.prototype = PConstants$1;
+
+
+
+
+
+// =====================================================================
+//
+//    THIS IS STILL AN OLD FILE FROM THE ORIGINAL NODE-PROCESSING-JS
+//
+// =====================================================================
+
+
+
+/**
+ * Processing.js default scope
+ */
+function generateDefaultScope(additionalScopes) {
+
+  // bootstrap a default scope instance
+  additionalScopes = additionalScopes || {};
+  let scopes = Object.assign({}, defaultScopes, additionalScopes);
+  let defaultScope = new DefaultScope();
+  Object.keys(scopes).forEach(function(prop) {
+    defaultScope[prop] = scopes[prop];
+  });
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Class inheritance helper methods
+  ////////////////////////////////////////////////////////////////////////////
+
+  defaultScope.defineProperty = function(obj, name, desc) {
+    if("defineProperty" in Object) {
+      Object.defineProperty(obj, name, desc);
+    } else {
+      if (desc.hasOwnProperty("get")) {
+        obj.__defineGetter__(name, desc.get);
+      }
+      if (desc.hasOwnProperty("set")) {
+        obj.__defineSetter__(name, desc.set);
+      }
+    }
+  };
+
+  /**
+   * class overloading, part 1
+   */
+  function overloadBaseClassFunction(object, name, basefn) {
+    if (!object.hasOwnProperty(name) || typeof object[name] !== 'function') {
+      // object method is not a function or just inherited from Object.prototype
+      object[name] = basefn;
+      return;
+    }
+    var fn = object[name];
+    if ("$overloads" in fn) {
+      // the object method already overloaded (see defaultScope.addMethod)
+      // let's just change a fallback method
+      fn.$defaultOverload = basefn;
+      return;
+    }
+    if (!("$overloads" in basefn) && fn.length === basefn.length) {
+      // special case when we just overriding the method
+      return;
+    }
+    var overloads, defaultOverload;
+    if ("$overloads" in basefn) {
+      // let's inherit base class overloads to speed up things
+      overloads = basefn.$overloads.slice(0);
+      overloads[fn.length] = fn;
+      defaultOverload = basefn.$defaultOverload;
+    } else {
+      overloads = [];
+      overloads[basefn.length] = basefn;
+      overloads[fn.length] = fn;
+      defaultOverload = fn;
+    }
+    var hubfn = function() {
+      var fn = hubfn.$overloads[arguments.length] ||
+               ("$methodArgsIndex" in hubfn && arguments.length > hubfn.$methodArgsIndex ?
+               hubfn.$overloads[hubfn.$methodArgsIndex] : null) ||
+               hubfn.$defaultOverload;
+      return fn.apply(this, arguments);
+    };
+    hubfn.$overloads = overloads;
+    if ("$methodArgsIndex" in basefn) {
+      hubfn.$methodArgsIndex = basefn.$methodArgsIndex;
+    }
+    hubfn.$defaultOverload = defaultOverload;
+    hubfn.name = name;
+    object[name] = hubfn;
   }
 
-  __pre_setup(hooks) {
-  	this.hooks = Object.assign({}, emptyhooks, hooks);
-  	this.hooks.presetup();
+  /**
+   * class overloading, part 2
+   */
+  function extendClass(subClass, baseClass) {
+    function extendGetterSetter(propertyName) {
+      defaultScope.defineProperty(subClass, propertyName, {
+        get: function() {
+          return baseClass[propertyName];
+        },
+        set: function(v) {
+          baseClass[propertyName]=v;
+        },
+        enumerable: true
+      });
+    }
+
+    var properties = [];
+    for (var propertyName in baseClass) {
+      if (typeof baseClass[propertyName] === 'function') {
+        overloadBaseClassFunction(subClass, propertyName, baseClass[propertyName]);
+      } else if(propertyName.charAt(0) !== "$" && !(propertyName in subClass)) {
+        // Delaying the properties extension due to the IE9 bug (see #918).
+        properties.push(propertyName);
+      }
+    }
+    while (properties.length > 0) {
+      extendGetterSetter(properties.shift());
+    }
+
+    subClass.$super = baseClass;
   }
 
-  __post_setup() {
-    this.hooks.postsetup();
+  /**
+   * class overloading, part 3
+   */
+  defaultScope.extendClassChain = function(base) {
+    var path = [base];
+    for (var self = base.$upcast; self; self = self.$upcast) {
+      extendClass(self, base);
+      path.push(self);
+      base = self;
+    }
+    while (path.length > 0) {
+      path.pop().$self=base;
+    }
+  };
+
+  // static
+  defaultScope.extendStaticMembers = function(derived, base) {
+    extendClass(derived, base);
+  };
+
+  // interface
+  defaultScope.extendInterfaceMembers = function(derived, base) {
+    extendClass(derived, base);
+  };
+
+  /**
+   * Java methods and JavaScript functions differ enough that
+   * we need a special function to make sure it all links up
+   * as classical hierarchical class chains.
+   */
+  defaultScope.addMethod = function(object, name, fn, hasMethodArgs) {
+    var existingfn = object[name];
+    if (existingfn || hasMethodArgs) {
+      var args = fn.length;
+      // builds the overload methods table
+      if ("$overloads" in existingfn) {
+        existingfn.$overloads[args] = fn;
+      } else {
+        var hubfn = function() {
+          var fn = hubfn.$overloads[arguments.length] ||
+                   ("$methodArgsIndex" in hubfn && arguments.length > hubfn.$methodArgsIndex ?
+                   hubfn.$overloads[hubfn.$methodArgsIndex] : null) ||
+                   hubfn.$defaultOverload;
+          return fn.apply(this, arguments);
+        };
+        var overloads = [];
+        if (existingfn) {
+          overloads[existingfn.length] = existingfn;
+        }
+        overloads[args] = fn;
+        hubfn.$overloads = overloads;
+        hubfn.$defaultOverload = existingfn || fn;
+        if (hasMethodArgs) {
+          hubfn.$methodArgsIndex = args;
+        }
+        hubfn.name = name;
+        object[name] = hubfn;
+      }
+    } else {
+      object[name] = fn;
+    }
+  };
+
+  // internal helper function
+  function isNumericalJavaType(type) {
+    if (typeof type !== "string") {
+      return false;
+    }
+    return ["byte", "int", "char", "color", "float", "long", "double"].indexOf(type) !== -1;
   }
 
-  __pre_draw() {
-    this.hooks.predraw(this.context);
-  	this.cache.context = this.context;
-  }
+  /**
+   * Java's arrays are pre-filled when declared with
+   * an initial size, but no content. JS arrays are not.
+   */
+  defaultScope.createJavaArray = function(type, bounds) {
+    var result = null,
+        defaultValue = null;
+    if (typeof type === "string") {
+      if (type === "boolean") {
+        defaultValue = false;
+      } else if (isNumericalJavaType(type)) {
+        defaultValue = 0;
+      }
+    }
+    if (typeof bounds[0] === 'number') {
+      var itemsCount = 0 | bounds[0];
+      if (bounds.length <= 1) {
+        result = [];
+        result.length = itemsCount;
+        for (var i = 0; i < itemsCount; ++i) {
+          result[i] = defaultValue;
+        }
+      } else {
+        result = [];
+        var newBounds = bounds.slice(1);
+        for (var j = 0; j < itemsCount; ++j) {
+          result.push(defaultScope.createJavaArray(type, newBounds));
+        }
+      }
+    }
+    return result;
+  };
 
-  __post_draw() {
-  	this.hooks.postdraw(this.context);
-  }
+  // screenWidth and screenHeight are shared by all instances.
+  // and return the width/height of the browser's viewport.
+  defaultScope.defineProperty(defaultScope, 'screenWidth',
+    { get: function() { return window.innerWidth; } });
+
+  defaultScope.defineProperty(defaultScope, 'screenHeight',
+    { get: function() { return window.innerHeight; } });
+
+  return defaultScope;
 }
 
 // removes generics
@@ -2169,18 +3073,14 @@ for (i = 0, l = names.length; i < l ; ++i) {
     globalNames[names[i]] = null;
 }
 
-var PConstants = {
+var PConstants$2 = {
   PI: Math.PI,
   TAU: 2 * Math.PI
 };
 
-var PConstants$1 = { PConstants };
+var PConstants$3 = { PConstants: PConstants$2 };
 
-var DefaultScope = {
-	undef: undefined
-};
-
-var defaultScope = { DefaultScope };
+var version = "1.0.0";
 
 /**
  * Root of a Processing AST
@@ -2207,20 +3107,23 @@ class Ast {
 
   replaceContext(localNames) {
     return (subject) => {
-      let name = subject.name;
-      if(localNames.hasOwnProperty(name)) {
-        return name;
+      let name$$1 = subject.name;
+      if(localNames.hasOwnProperty(name$$1)) {
+        return name$$1;
       }
-      if(globalNames.hasOwnProperty(name) ||
-         PConstants$1.hasOwnProperty(name) ||
-         defaultScope.hasOwnProperty(name)) {
-        return "$p." + name;
+      if(globalNames.hasOwnProperty(name$$1) ||
+         PConstants$3.hasOwnProperty(name$$1) ||
+         this.defaultScope.hasOwnProperty(name$$1)) {
+        return "$p." + name$$1;
       }
-      return name;
+      return name$$1;
     };
   }
 
-  toString() {
+  toString(additionalScopes) {
+    additionalScopes = additionalScopes || {};
+    this.defaultScope = generateDefaultScope(additionalScopes);
+
     let classes = [],
         otherStatements = [],
         statement;
@@ -2238,14 +3141,18 @@ class Ast {
     let localNames = getLocalNames(this.astNodes);
     let replaceContext = this.replaceContext(localNames);
 
+    classes = contextMappedString(classes, replaceContext, '');
+    otherStatements = contextMappedString(otherStatements, replaceContext, '');
+
     let result = [
-      '// this code was autogenerated from PJS',
-      '(function($p) {',
-      '  let sketch = new $p.Sketch({{ SKETCH_ID_PLACEHOLDER }}, $p);',
-//      contextMappedString(classes, replaceContext, ''),
-//      contextMappedString(otherStatements, replaceContext, ''),
-      '}(Processing))'
-    ].join('\n');
+     `// this code was autogenerated by ProcessingJS-ES7 version ${version}`
+    ,`(function(PJS) {`
+    ,`  let $p = PJS.generateDefaultScope();`
+    ,`  ${ classes }`
+    ,`  ${ otherStatements }`
+    ,`  PJS.onSketchLoad($p);`
+    ,`  window.sketch = $p;`
+    ,`}(Processing));`].join('\n');
 
     return result;
   }
@@ -2287,7 +3194,7 @@ function hexProtector(all, hexCode) {
 }
 
 // ...
-function transformMain(code) {
+function transformMain(code, scope) {
 	// remove carriage returns "\r"
 	let codeWithoutExtraCr = code.replace(/\r\n?|\n\r/g, "\n");
 
@@ -2346,6 +3253,7 @@ function injectStrings(code, strings) {
   });
 }
 
+//import Sketch from "./Sketch";
 var staticSketchList = [];
 
 /**
@@ -2383,9 +3291,9 @@ var Processing = {
   /**
    * convert an AST into sketch code
    */
-  async convert(ast) {
+  async convert(ast, additionalScopes) {
     // convert AST to processing.js source code
-    let pjsSourceCode = ast.toString();
+    let pjsSourceCode = ast.toString(additionalScopes);
     let strings = ast.getSourceStrings();
     // remove empty extra lines with space
     pjsSourceCode = pjsSourceCode.replace(/\s*\n(?:[\t ]*\n)+/g, "\n\n");
@@ -2410,10 +3318,12 @@ var Processing = {
     if (old) {
       return;
     }
+
     let script = document.createElement("script");
     script.id = `processing-sketch-${id}`;
     script.textContent = sketchSourceCode.replace("{{ SKETCH_ID_PLACEHOLDER }}", id);
     script.async = true;
+
     let head = document.querySelector("head");
     return head.appendChild(script);
 
@@ -2428,14 +3338,20 @@ var Processing = {
   },
 
   /**
-   *
+   * Generate a default scope for a sketch
+   */
+  generateDefaultScope(options) {
+    return generateDefaultScope(options);
+  },
+
+  /**
+   * ...
    */
   onSketchLoad(sketch) {
     let id = sketch.id;
     staticSketchList[id] = sketch;
     console.log("received Sketch");
     console.log(sketch);
-
     // ... code goes here ...
   },
 
@@ -2455,7 +3371,7 @@ var Processing = {
   /**
    * Effect a complete sketch load
    */
-  run(urilist, target, hooks) {
+  run(urilist, target, additionalScopes, hooks) {
    	if (!urilist) {
   		throw new Error("No source code supplied to build a sketch with.");
   	}
@@ -2467,10 +3383,10 @@ var Processing = {
     Processing.load(urilist)
     .then( set => Processing.aggregate(set))
     .then( source => Processing.parse(source))
-    .then( ast => Processing.convert(ast))
+    .then( ast => Processing.convert(ast, additionalScopes))
     .then( sketchSource => Processing.injectSketch(sketchSource))
     .catch( error => {
-      if (hooks.onerror) {
+      if (hooks && hooks.onerror) {
         hooks.onerror(error);
       } else {
         throw error;
@@ -2479,40 +3395,6 @@ var Processing = {
   }
 };
 
-Processing.Sketch = Sketch;
+return Processing;
 
-//import document from "./shims/document";
-
-// Some simple code
-var code = [
-`  import test.something;`,
-``,
-`  class Cake {`,
-`    int a = 0;`,
-`    boolean test(boolean okay) {`,
-`      return true;`,
-`    }`,
-`    static boolean test2(boolean okay) {`,
-`      return false;`,
-`    }`,
-`  }`,
-``,
-`  void setup() {`,
-`    Cake c = new Cake();`,
-`    noLoop();`,
-`  }`,
-``,
-`  void draw() {`,
-`    background(255);`,
-`  }`
-].join('\n');
-
-if (typeof window !== "undefined") {
-	window.Processing = Processing;
-
-	// See if Processing can turn it into a bindable script
-	Processing.parse(code)
-	          .then(ast => Processing.convert(ast))
-	          .then(res => Processing.injectSketch(res, document))
-	          .catch(error => console.error(error));
-}
+})));

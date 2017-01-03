@@ -39,7 +39,7 @@ function hexProtector(all, hexCode) {
 }
 
 // ...
-export default function transformMain(code) {
+export default function transformMain(code, scope) {
 	// remove carriage returns "\r"
 	let codeWithoutExtraCr = code.replace(/\r\n?|\n\r/g, "\n");
 

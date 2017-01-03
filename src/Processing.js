@@ -1,5 +1,6 @@
 import Parser from "./Parser";
-import Sketch from "./Sketch";
+//import Sketch from "./Sketch";
+import generateDefaultScope from "./DefaultScope";
 
 import transformMain from "../src-temp/transform-main";
 import processPredirectives from "../src-temp/process-predirectives";
@@ -43,9 +44,9 @@ var Processing = {
   /**
    * convert an AST into sketch code
    */
-  async convert(ast) {
+  async convert(ast, additionalScopes) {
     // convert AST to processing.js source code
-    let pjsSourceCode = ast.toString();
+    let pjsSourceCode = ast.toString(additionalScopes);
     let strings = ast.getSourceStrings();
     // remove empty extra lines with space
     pjsSourceCode = pjsSourceCode.replace(/\s*\n(?:[\t ]*\n)+/g, "\n\n");
@@ -70,10 +71,12 @@ var Processing = {
     if (old) {
       return;
     }
+
     let script = document.createElement("script");
     script.id = `processing-sketch-${id}`;
     script.textContent = sketchSourceCode.replace("{{ SKETCH_ID_PLACEHOLDER }}", id);
     script.async = true;
+
     let head = document.querySelector("head");
     return head.appendChild(script);
 
@@ -88,14 +91,20 @@ var Processing = {
   },
 
   /**
-   *
+   * Generate a default scope for a sketch
+   */
+  generateDefaultScope(options) {
+    return generateDefaultScope(options);
+  },
+
+  /**
+   * ...
    */
   onSketchLoad(sketch) {
     let id = sketch.id;
     staticSketchList[id] = sketch;
     console.log("received Sketch");
     console.log(sketch);
-
     // ... code goes here ...
   },
 
@@ -115,7 +124,7 @@ var Processing = {
   /**
    * Effect a complete sketch load
    */
-  run(urilist, target, hooks) {
+  run(urilist, target, additionalScopes, hooks) {
    	if (!urilist) {
   		throw new Error("No source code supplied to build a sketch with.");
   	}
@@ -127,10 +136,10 @@ var Processing = {
     Processing.load(urilist)
     .then( set => Processing.aggregate(set))
     .then( source => Processing.parse(source))
-    .then( ast => Processing.convert(ast))
+    .then( ast => Processing.convert(ast, additionalScopes))
     .then( sketchSource => Processing.injectSketch(sketchSource))
     .catch( error => {
-      if (hooks.onerror) {
+      if (hooks && hooks.onerror) {
         hooks.onerror(error);
       } else {
         throw error;
@@ -139,6 +148,6 @@ var Processing = {
   }
 };
 
-Processing.Sketch = Sketch;
+//Processing.Sketch = Sketch;
 
 export default Processing;
