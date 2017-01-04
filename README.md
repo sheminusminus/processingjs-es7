@@ -3,7 +3,7 @@
 An attempt at an ES2017 implementation of [Processing.js](https://github.com/processing-js/processing-js), with [rollup](http://rollupjs.org/guide) as bundler.
 
 - [x] port the parser
-- [x] rewrite how sketches are run (from new Function() to `<script> elements instead)
+- [x] rewrite how sketches are run (from new Function() to `<script>` elements instead)
 - [ ] slot in some of the basic Processing API to get a canvas to do a thing at all
 - [ ] make the parser generate ES7 code
 
