@@ -88,11 +88,10 @@ const preloading = {
   // creates an element using the font, to start loading the font,
   // and compare against a default font to see if the custom font is loaded
   add: function(fontSrc) {
-    console.log("XYZ");
-
     if (!this.initialized) {
      this.initialize();
     }
+
     // fontSrc can be a string or a javascript object
     // acceptable fonts are .ttf, .otf, and data uri
     let fontName = (typeof fontSrc === 'object' ? fontSrc.fontFace : fontSrc),

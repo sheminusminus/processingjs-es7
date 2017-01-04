@@ -1,11 +1,9 @@
-import Parser from "./Parser";
-//import Sketch from "./Sketch";
-import generateDefaultScope from "./DefaultScope";
-
 import transformMain from "./Parser/transform-main";
 import processPreDirectives from "./Parser/process-pre-directives";
 import parseProcessing from "./Parser/parse-processing";
 import injectStrings from "./Parser/inject-strings";
+import generateDefaultScope from "./DefaultScope";
+import SketchRunner from "./SketchRunner";
 
 var staticSketchList = [];
 
@@ -62,16 +60,13 @@ var Processing = {
   /**
    * inject a sketch into the page
    */
-  injectSketch(sketchSourceCode, document) {
-    if (typeof document === "undefined") {
-      throw new Error("The `document` namespace could not be found for injecting a sketch");
-    }
-
+  injectSketch(sketchSourceCode, target, additionalScopes, hooks) {
     let id = staticSketchList.length;
+
+    staticSketchList[id] = { sketch: undefined, target, hooks };
+
     let old = document.querySelector(`#processing-sketch-${id}`);
-    if (old) {
-      return;
-    }
+    if (old) { return; }
 
     let script = document.createElement("script");
     script.id = `processing-sketch-${id}`;
@@ -103,23 +98,10 @@ var Processing = {
    */
   onSketchLoad(sketch) {
     let id = sketch.id;
-    staticSketchList[id] = sketch;
-    console.log("received Sketch");
-    console.log(sketch);
-    // ... code goes here ...
-  },
-
-  /**
-   * start running a sketch
-   */
-  execute(sketch, target, hooks) {
-    sketch.__pre__setup(hooks);
-    sketch.setup();
-    sketch.__post__setup();
-
-    sketch.__pre_draw();
-    sketch.draw();
-    sketch.__post_draw();
+    let data = staticSketchList[id];
+    data.sketch = sketch;
+    let runner = new SketchRunner(data);
+    runner.run();
   },
 
   /**
@@ -138,7 +120,7 @@ var Processing = {
     .then( set => Processing.aggregate(set))
     .then( source => Processing.parse(source))
     .then( ast => Processing.convert(ast, additionalScopes))
-    .then( sketchSource => Processing.injectSketch(sketchSource))
+    .then( sketchSource => Processing.injectSketch(sketchSource, target, additionalScopes, hooks))
     .catch( error => {
       if (hooks && hooks.onerror) {
         hooks.onerror(error);

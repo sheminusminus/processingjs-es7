@@ -4,1771 +4,6 @@
     (global.Processing = factory());
 }(this, (function () { 'use strict';
 
-/**
- * Parser to turn string data into an AST
- */
-
-/**
- * Processing.js environment constants
- */
-const PConstants = {
-    X: 0,
-    Y: 1,
-    Z: 2,
-
-    R: 3,
-    G: 4,
-    B: 5,
-    A: 6,
-
-    U: 7,
-    V: 8,
-
-    NX: 9,
-    NY: 10,
-    NZ: 11,
-
-    EDGE: 12,
-
-    // Stroke
-    SR: 13,
-    SG: 14,
-    SB: 15,
-    SA: 16,
-
-    SW: 17,
-
-    // Transformations (2D and 3D)
-    TX: 18,
-    TY: 19,
-    TZ: 20,
-
-    VX: 21,
-    VY: 22,
-    VZ: 23,
-    VW: 24,
-
-    // Material properties
-    AR: 25,
-    AG: 26,
-    AB: 27,
-
-    DR: 3,
-    DG: 4,
-    DB: 5,
-    DA: 6,
-
-    SPR: 28,
-    SPG: 29,
-    SPB: 30,
-
-    SHINE: 31,
-
-    ER: 32,
-    EG: 33,
-    EB: 34,
-
-    BEEN_LIT: 35,
-
-    VERTEX_FIELD_COUNT: 36,
-
-    // Renderers
-    P2D:    1,
-    JAVA2D: 1,
-    WEBGL:  2,
-    P3D:    2,
-    OPENGL: 2,
-    PDF:    0,
-    DXF:    0,
-
-    // Platform IDs
-    OTHER:   0,
-    WINDOWS: 1,
-    MAXOSX:  2,
-    LINUX:   3,
-
-    EPSILON: 0.0001,
-
-    MAX_FLOAT:  3.4028235e+38,
-    MIN_FLOAT: -3.4028235e+38,
-    MAX_INT:    2147483647,
-    MIN_INT:   -2147483648,
-
-    PI:         Math.PI,
-    TWO_PI:     2 * Math.PI,
-    TAU:        2 * Math.PI,
-    HALF_PI:    Math.PI / 2,
-    THIRD_PI:   Math.PI / 3,
-    QUARTER_PI: Math.PI / 4,
-
-    DEG_TO_RAD: Math.PI / 180,
-    RAD_TO_DEG: 180 / Math.PI,
-
-    WHITESPACE: " \t\n\r\f\u00A0",
-
-    // Color modes
-    RGB:   1,
-    ARGB:  2,
-    HSB:   3,
-    ALPHA: 4,
-    CMYK:  5,
-
-    // Image file types
-    TIFF:  0,
-    TARGA: 1,
-    JPEG:  2,
-    GIF:   3,
-
-    // Filter/convert types
-    BLUR:      11,
-    GRAY:      12,
-    INVERT:    13,
-    OPAQUE:    14,
-    POSTERIZE: 15,
-    THRESHOLD: 16,
-    ERODE:     17,
-    DILATE:    18,
-
-    // Blend modes
-    REPLACE:    0,
-    BLEND:      1 << 0,
-    ADD:        1 << 1,
-    SUBTRACT:   1 << 2,
-    LIGHTEST:   1 << 3,
-    DARKEST:    1 << 4,
-    DIFFERENCE: 1 << 5,
-    EXCLUSION:  1 << 6,
-    MULTIPLY:   1 << 7,
-    SCREEN:     1 << 8,
-    OVERLAY:    1 << 9,
-    HARD_LIGHT: 1 << 10,
-    SOFT_LIGHT: 1 << 11,
-    DODGE:      1 << 12,
-    BURN:       1 << 13,
-
-    // Color component bit masks
-    ALPHA_MASK: 0xff000000,
-    RED_MASK:   0x00ff0000,
-    GREEN_MASK: 0x0000ff00,
-    BLUE_MASK:  0x000000ff,
-
-    // Projection matrices
-    CUSTOM:       0,
-    ORTHOGRAPHIC: 2,
-    PERSPECTIVE:  3,
-
-    // Shapes
-    POINT:          2,
-    POINTS:         2,
-    LINE:           4,
-    LINES:          4,
-    TRIANGLE:       8,
-    TRIANGLES:      9,
-    TRIANGLE_STRIP: 10,
-    TRIANGLE_FAN:   11,
-    QUAD:           16,
-    QUADS:          16,
-    QUAD_STRIP:     17,
-    POLYGON:        20,
-    PATH:           21,
-    RECT:           30,
-    ELLIPSE:        31,
-    ARC:            32,
-    SPHERE:         40,
-    BOX:            41,
-
-    // Arc drawing modes
-    //OPEN:          1, // shared with Shape closing modes
-    CHORD:           2,
-    PIE:             3,
-
-
-    GROUP:          0,
-    PRIMITIVE:      1,
-    //PATH:         21, // shared with Shape PATH
-    GEOMETRY:       3,
-
-    // Shape Vertex
-    VERTEX:        0,
-    BEZIER_VERTEX: 1,
-    CURVE_VERTEX:  2,
-    BREAK:         3,
-    CLOSESHAPE:    4,
-
-    // Shape closing modes
-    OPEN:  1,
-    CLOSE: 2,
-
-    // Shape drawing modes
-    CORNER:          0, // Draw mode convention to use (x, y) to (width, height)
-    CORNERS:         1, // Draw mode convention to use (x1, y1) to (x2, y2) coordinates
-    RADIUS:          2, // Draw mode from the center, and using the radius
-    CENTER_RADIUS:   2, // Deprecated! Use RADIUS instead
-    CENTER:          3, // Draw from the center, using second pair of values as the diameter
-    DIAMETER:        3, // Synonym for the CENTER constant. Draw from the center
-    CENTER_DIAMETER: 3, // Deprecated! Use DIAMETER instead
-
-    // Text vertical alignment modes
-    BASELINE: 0,   // Default vertical alignment for text placement
-    TOP:      101, // Align text to the top
-    BOTTOM:   102, // Align text from the bottom, using the baseline
-
-    // UV Texture coordinate modes
-    NORMAL:     1,
-    NORMALIZED: 1,
-    IMAGE:      2,
-
-    // Text placement modes
-    MODEL: 4,
-    SHAPE: 5,
-
-    // Stroke modes
-    SQUARE:  'butt',
-    ROUND:   'round',
-    PROJECT: 'square',
-    MITER:   'miter',
-    BEVEL:   'bevel',
-
-    // Lighting modes
-    AMBIENT:     0,
-    DIRECTIONAL: 1,
-    //POINT:     2, Shared with Shape constant
-    SPOT:        3,
-
-    // Key constants
-
-    // Both key and keyCode will be equal to these values
-    BACKSPACE: 8,
-    TAB:       9,
-    ENTER:     10,
-    RETURN:    13,
-    ESC:       27,
-    DELETE:    127,
-    CODED:     0xffff,
-
-    // p.key will be CODED and p.keyCode will be this value
-    SHIFT:     16,
-    CONTROL:   17,
-    ALT:       18,
-    CAPSLK:    20,
-    PGUP:      33,
-    PGDN:      34,
-    END:       35,
-    HOME:      36,
-    LEFT:      37,
-    UP:        38,
-    RIGHT:     39,
-    DOWN:      40,
-    F1:        112,
-    F2:        113,
-    F3:        114,
-    F4:        115,
-    F5:        116,
-    F6:        117,
-    F7:        118,
-    F8:        119,
-    F9:        120,
-    F10:       121,
-    F11:       122,
-    F12:       123,
-    NUMLK:     144,
-    META:      157,
-    INSERT:    155,
-
-    // Cursor types
-    ARROW:    'default',
-    CROSS:    'crosshair',
-    HAND:     'pointer',
-    MOVE:     'move',
-    TEXT:     'text',
-    WAIT:     'wait',
-    NOCURSOR: "url('data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='), auto",
-
-    // Hints
-    DISABLE_OPENGL_2X_SMOOTH:     1,
-    ENABLE_OPENGL_2X_SMOOTH:     -1,
-    ENABLE_OPENGL_4X_SMOOTH:      2,
-    ENABLE_NATIVE_FONTS:          3,
-    DISABLE_DEPTH_TEST:           4,
-    ENABLE_DEPTH_TEST:           -4,
-    ENABLE_DEPTH_SORT:            5,
-    DISABLE_DEPTH_SORT:          -5,
-    DISABLE_OPENGL_ERROR_REPORT:  6,
-    ENABLE_OPENGL_ERROR_REPORT:  -6,
-    ENABLE_ACCURATE_TEXTURES:     7,
-    DISABLE_ACCURATE_TEXTURES:   -7,
-    HINT_COUNT:                  10,
-
-    // PJS defined constants
-    SINCOS_LENGTH:      720,       // every half degree
-    PRECISIONB:         15,        // fixed point precision is limited to 15 bits!!
-    PRECISIONF:         1 << 15,
-    PREC_MAXVAL:        (1 << 15) - 1,
-    PREC_ALPHA_SHIFT:   24 - 15,
-    PREC_RED_SHIFT:     16 - 15,
-    NORMAL_MODE_AUTO:   0,
-    NORMAL_MODE_SHAPE:  1,
-    NORMAL_MODE_VERTEX: 2,
-    MAX_LIGHTS:         8
-};
-
-var PConstants$1 = { PConstants };
-
-/**
- * Returns Java equals() result for two objects. If the first object
- * has the "equals" function, it preforms the call of this function.
- * Otherwise the method uses the JavaScript === operator.
- *
- * @param {Object} obj          The first object.
- * @param {Object} other        The second object.
- *
- * @returns {boolean}           true if the objects are equal.
- */
-function virtEquals$1(obj, other) {
-  if (obj === null || other === null) {
-    return (obj === null) && (other === null);
-  }
-  if (typeof (obj) === "string") {
-    return obj === other;
-  }
-  if (typeof(obj) !== "object") {
-    return obj === other;
-  }
-  if (obj.equals instanceof Function) {
-    return obj.equals(other);
-  }
-  return obj === other;
-}
-
-/**
- * Returns Java hashCode() result for the object. If the object has the "hashCode" function,
- * it preforms the call of this function. Otherwise it uses/creates the "$id" property,
- * which is used as the hashCode.
- *
- * @param {Object} obj          The object.
- * @returns {int}               The object's hash code.
- */
-function virtHashCode$1(obj, undef) {
-  if (typeof(obj) === "string") {
-    var hash = 0;
-    for (var i = 0; i < obj.length; ++i) {
-      hash = (hash * 31 + obj.charCodeAt(i)) & 0xFFFFFFFF;
-    }
-    return hash;
-  }
-  if (typeof(obj) !== "object") {
-    return obj & 0xFFFFFFFF;
-  }
-  if (obj.hashCode instanceof Function) {
-    return obj.hashCode();
-  }
-  if (obj.$id === undef) {
-      obj.$id = ((Math.floor(Math.random() * 0x10000) - 0x8000) << 16) | Math.floor(Math.random() * 0x10000);
-  }
-  return obj.$id;
-}
-
-class Iterator {
-  constructor(array) {
-    this.index = -1;
-    this.array = array;
-  }
-
-  hasNext() {
-    return (this.index + 1) < this.array.length;
-  }
-
-  next() {
-    return this.array[++this.index];
-  }
-
-  remove() {
-    this.array.splice(this.index--, 1);
-  }
-}
-
-class JavaBaseClass {
-
-	// void -> String
-	toString() {
-		return "JavaBaseClass";
-	}
-
-	// void -> integer
-	hashCode() {
-		return 0;
-	}
-
-}
-
-/**
- * An ArrayList stores a variable number of objects.
- *
- * @param {int} initialCapacity optional defines the initial capacity of the list, it's empty by default
- *
- * @returns {ArrayList} new ArrayList object
- */
-
-
-class ArrayList extends JavaBaseClass {
-  constructor(a) {
-    super();
-    this.array = [];
-    if (a && a.toArray) {
-      this.array = a.toArray();
-    }
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.get() Returns the element at the specified position in this list.
-   *
-   * @param {int} i index of element to return
-   *
-   * @returns {Object} the element at the specified position in this list.
-   */
-  get(i) {
-    return this.array[i];
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.contains() Returns true if this list contains the specified element.
-   *
-   * @param {Object} item element whose presence in this List is to be tested.
-   *
-   * @returns {boolean} true if the specified element is present; false otherwise.
-   */
-  contains(item) {
-    return this.indexOf(item)>-1;
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.indexOf() Returns the position this element takes in the list, or -1 if the element is not found.
-   *
-   * @param {Object} item element whose position in this List is to be tested.
-   *
-   * @returns {int} the list position that the first match for this element holds in the list, or -1 if it is not in the list.
-   */
-  indexOf(item) {
-    let array = this.array;
-    for (let i = 0, len = array.length; i < len; ++i) {
-      if (virtEquals$1(item, array[i])) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.lastIndexOf() Returns the index of the last occurrence of the specified element in this list,
-   * or -1 if this list does not contain the element. More formally, returns the highest index i such that
-   * (o==null ? get(i)==null : o.equals(get(i))), or -1 if there is no such index.
-   *
-   * @param {Object} item element to search for.
-   *
-   * @returns {int} the index of the last occurrence of the specified element in this list, or -1 if this list does not contain the element.
-   */
-  lastIndexOf(item) {
-    let array = this.array;
-    for (let i = array.length-1; i >= 0; --i) {
-      if (virtEquals$1(item, array[i])) {
-        return i;
-      }
-    }
-    return -1;
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.add() Adds the specified element to this list.
-   *
-   * @param {int}    index  optional index at which the specified element is to be inserted
-   * @param {Object} object element to be added to the list
-   */
-  add(index, object) {
-    let array = this.array;
-    // add(Object)
-    if (!object) {
-      object = index;
-      return array.push(object);
-    }
-    // add(i, Object)
-    if (typeof index === 'number') {
-      if (index < 0) {
-        throw new Error(`ArrayList.add(index,Object): index cannot be less than zero (found ${number}).`);
-      }
-      if (index >= array.length) {
-        throw new Error("ArrayList.add(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
-      }
-      return array.splice(index, 0, arguments[1]);
-    }
-    throw(`ArrayList.add(index,Object): index is not a number (found type ${typeof index} instead).`);
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.addAll(collection) appends all of the elements in the specified
-   * Collection to the end of this list, in the order that they are returned by
-   * the specified Collection's Iterator.
-   *
-   * When called as addAll(index, collection) the elements are inserted into
-   * this list at the position indicated by index.
-   *
-   * @param {index} Optional; specifies the position the colletion should be inserted at
-   * @param {collection} Any iterable object (ArrayList, HashMap.keySet(), etc.)
-   * @throws out of bounds error for negative index, or index greater than list size.
-   */
-  addAll(index, collection) {
-    let iterator;
-    let array = this.array;
-    // addAll(Collection)
-    if (!collection) {
-      collection = index;
-      iterator = new ObjectIterator(collection);
-      while (iterator.hasNext()) {
-        array.push(iterator.next());
-      }
-      return;
-    }
-    // addAll(int, Collection)
-    if (typeof index === "number") {
-      if (index < 0) {
-        throw new Error(`ArrayList.addAll(index,Object): index cannot be less than zero (found ${number}).`);
-      }
-      if (index >= array.length) {
-        throw new Error("ArrayList.addAll(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
-      }
-      iterator = new ObjectIterator(collection);
-      while (iterator.hasNext()) {
-        array.splice(index++, 0, iterator.next());
-      }
-      return;
-    }
-    throw(`ArrayList.addAll(index,collection): index is not a number (found type ${typeof index} instead).`);
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.set() Replaces the element at the specified position in this list with the specified element.
-   *
-   * @param {int}    index  index of element to replace
-   * @param {Object} object element to be stored at the specified position
-   */
-  set(index, object) {
-    let array = this.array;
-    if (!object) {
-      throw new Error(`ArrayList.set(index,Object): missing object argument.`);
-    }
-    if (typeof index === 'number') {
-      if (index < 0) {
-        throw new Error(`ArrayList.set(index,Object): index cannot be less than zero (found ${number}).`);
-      }
-      if (index >= array.length) {
-        throw new Error("ArrayList.set(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
-      }
-      return array.splice(index, 1, object);
-    }
-    throw(`ArrayList.set(index,Object): index is not a number (found type ${typeof index} instead).`);
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.size() Returns the number of elements in this list.
-   *
-   * @returns {int} the number of elements in this list
-   */
-  size() {
-    return this.array.length;
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.clear() Removes all of the elements from this list. The list will be empty after this call returns.
-   */
-  clear() {
-    this.array = [];
-  };
-
-  /**
-   * @member ArrayList
-   * ArrayList.remove() Removes an element either based on index, if the argument is a number, or
-   * by equality check, if the argument is an object.
-   *
-   * @param {int|Object} item either the index of the element to be removed, or the element itself.
-   *
-   * @returns {Object|boolean} If removal is by index, the element that was removed, or null if nothing was removed. If removal is by object, true if removal occurred, otherwise false.
-   */
-  remove(item) {
-    if (typeof item === 'number') {
-      return array.splice(item, 1)[0];
-    }
-    item = this.indexOf(item);
-    if (item > -1) {
-      array.splice(item, 1);
-      return true;
-    }
-    return false;
-  };
-
-   /**
-   * @member ArrayList
-   * ArrayList.removeAll Removes from this List all of the elements from
-   * the current ArrayList which are present in the passed in paramater ArrayList 'c'.
-   * Shifts any succeeding elements to the left (reduces their index).
-   *
-   * @param {ArrayList} the ArrayList to compare to the current ArrayList
-   *
-   * @returns {boolean} true if the ArrayList had an element removed; false otherwise
-   */
-  removeAll(other) {
-    let oldlist = this.array;
-    this.clear();
-    // For every item that exists in the original ArrayList and not in the 'other' ArrayList
-    // copy it into the empty 'this' ArrayList to create the new 'this' Array.
-    oldlist.forEach( (item,i) => {
-      if (!other.contains(item)) {
-        this.add(x++, item);
-      }
-    });
-    return (this.size() < newList.size());
-  }
-
-  /**
-   * @member ArrayList
-   * ArrayList.isEmpty() Tests if this list has no elements.
-   *
-   * @returns {boolean} true if this list has no elements; false otherwise
-   */
-  isEmpty() {
-    return this.array.length === 0;
-  };
-
-  /**
-   * @member ArrayList
-   * ArrayList.clone() Returns a shallow copy of this ArrayList instance. (The elements themselves are not copied.)
-   *
-   * @returns {ArrayList} a clone of this ArrayList instance
-   */
-  clone() {
-    return new ArrayList(this);
-  };
-
-  /**
-   * @member ArrayList
-   * ArrayList.toArray() Returns an array containing all of the elements in this list in the correct order.
-   *
-   * @returns {Object[]} Returns an array containing all of the elements in this list in the correct order
-   */
-  toArray() {
-    return this.array.slice();
-  };
-
-  /**
-   * FIXME: TODO: add missing documentation
-   */
-  iterator() {
-    return new Iterator(this.array);
-  }
-
-  /**
-   * toString override
-   */
-  toString() {
-    return `[${ this.array.map(e => e.toString()).join(',') }]`;
-  }
-}
-
-class Char {
-  constructor(chr) {
-    let type = typeof chr;
-    if (type === 'string' && chr.length === 1) {
-      this.code = chr.charCodeAt(0);
-    } else if (type === 'number') {
-      this.code = chr;
-    } else if (chr instanceof Char) {
-      this.code = chr.code;
-    } else {
-      this.code = NaN;
-    }
-  };
-
-  toString() {
-    return String.fromCharCode(this.code);
-  }
-
-  valueOf() {
-    return this.code;
-  }
-}
-
-class HashmapIterator {
-  constructor(buckets, conversion, removeItem) {
-    this.buckets = buckets;
-    this.bucketIndex = 0;
-    this.itemIndex = -1;
-    this.endOfBuckets = false;
-    this.currentItem = undefined;
-    // and now start at "item one"
-    this.findNext();
-  }
-
-  findNext() {
-    while (!this.endOfBuckets) {
-      ++this.itemIndex;
-      if (this.bucketIndex >= buckets.length) {
-        this.endOfBuckets = true;
-      } else if (this.buckets[this.bucketIndex] === undefined || this.itemIndex >= this.buckets[this.bucketIndex].length) {
-        this.itemIndex = -1;
-        ++this.bucketIndex;
-      } else {
-        return;
-      }
-    }
-  }
-
-  /*
-  * @member Iterator
-  * Checks if the Iterator has more items
-  */
-  hasNext() {
-    return !this.endOfBuckets;
-  };
-
-  /*
-  * @member Iterator
-  * Return the next Item
-  */
-  next() {
-    this.currentItem = this.conversion(this.buckets[this.bucketIndex][this.itemIndex]);
-    this.findNext();
-    return currentItem;
-  };
-
-  /*
-  * @member Iterator
-  * Remove the current item
-  */
-  remove() {
-    if (this.currentItem !== undefined) {
-      this.removeItem(currentItem);
-      --this.itemIndex;
-      this.findNext();
-    }
-  };
-}
-
-class Set {
-
-  /**
-   * this takes three functions
-   * - conversion()
-   * - isIn()
-   * - removeItem()
-   */
-  constructor(hashMap, conversion, isIn, removeItem) {
-    this.hashMap = hashMap;
-    this.conversion = conversion;
-    this.isIn = isInt;
-    this.removeItem = removeItem;
-  }
-
-  clear() {
-    this.hashMap.clear();
-  }
-
-  contains(o) {
-    return this.isIn(o);
-  }
-
-  containsAll(o) {
-    var it = o.iterator();
-    while (it.hasNext()) {
-      if (!this.contains(it.next())) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  isEmpty() {
-    return this.hashMap.isEmpty();
-  }
-
-  iterator() {
-    return new HashmapIterator(this.hashMap.buckets, conversion, removeItem);
-  }
-
-  remove(o) {
-    if (this.contains(o)) {
-      this.removeItem(o);
-      return true;
-    }
-    return false;
-  }
-
-  removeAll(c) {
-    var it = c.iterator();
-    var changed = false;
-    while (it.hasNext()) {
-      var item = it.next();
-      if (this.contains(item)) {
-        this.removeItem(item);
-        changed = true;
-      }
-    }
-    return true;
-  }
-
-  retainAll(c) {
-    var it = this.iterator();
-    var toRemove = [];
-    while (it.hasNext()) {
-      var entry = it.next();
-      if (!c.contains(entry)) {
-        toRemove.push(entry);
-      }
-    }
-    toRemove.forEach( e => this.removeItem(e));
-    return toRemove.length > 0;
-  }
-
-  size() {
-    return this.hashMap.size();
-  }
-
-  toArray() {
-    var result = [];
-    var it = this.iterator();
-    while (it.hasNext()) {
-      result.push(it.next());
-    }
-    return result;
-  };
-}
-
-class Entry {
-  constructor(hashMap, pair) {
-    this.hashMap = hashMap;
-    this.pair = pair;
-  }
-
-  _isIn(map) {
-    return map === this.hashMap && (this.pair.removed === undefined);
-  }
-
-  equals(o) {
-    return virtEquals(this.pair.key, o.getKey());
-  }
-
-  getKey() {
-    return this.pair.key;
-  }
-
-  getValue() {
-    return this.pair.value;
-  }
-
-  hashCode(o) {
-    return virtHashCode(this.pair.key);
-  }
-
-  setValue(value) {
-    let pair = this.pair;
-    let old = pair.value;
-    pair.value = value;
-    return old;
-  }
-}
-
-function getBucketIndex(buckets, key) {
-  let index = virtHashCode$1(key) % buckets.length;
-  return index < 0 ? buckets.length + index : index;
-}
-
-function ensureLoad(buckets, loadFactor, count) {
-  if (count <= loadFactor * buckets.length) {
-    return;
-  }
-  let allEntries = [];
-  buckets.forEach(bucket => {
-    if (bucket) {
-      allEntries = allEntries.concat(bucket);
-    }
-  });
-  let newBucketsLength = buckets.length * 2;
-  let newbuckets = [];
-  newbuckets.length = newBucketsLength;
-  allEntries.forEach(entry => {
-    let index = getBucketIndex(buckets, allEntries[j].key);
-    // FIXME: TODO: bit convoluted...?
-    let bucket = newbuckets[index];
-    if (bucket === undefined) {
-      newbuckets[index] = bucket = [];
-    }
-    bucket.push(allEntries[j]);
-  });
-  return buckets;
-}
-
-/**
-* A HashMap stores a collection of objects, each referenced by a key. This is similar to an Array, only
-* instead of accessing elements with a numeric index, a String  is used. (If you are familiar with
-* associative arrays from other languages, this is the same idea.)
-*
-* @param {int} initialCapacity          defines the initial capacity of the map, it's 16 by default
-* @param {float} loadFactor             the load factor for the map, the default is 0.75
-* @param {Map} m                        gives the new HashMap the same mappings as this Map
-*/
-class HashMap extends JavaBaseClass {
-
-  /**
-  * @member HashMap
-  * A HashMap stores a collection of objects, each referenced by a key. This is similar to an Array, only
-  * instead of accessing elements with a numeric index, a String  is used. (If you are familiar with
-  * associative arrays from other languages, this is the same idea.)
-  *
-  * @param {int} initialCapacity          defines the initial capacity of the map, it's 16 by default
-  * @param {float} loadFactor             the load factor for the map, the default is 0.75
-  * @param {Map} m                        gives the new HashMap the same mappings as this Map
-  */
-  constructor(other) {
-    super();
-    if (other instanceof HashMap) {
-      return arguments[0].clone();
-    }
-    this.initialCapacity = arguments.length > 0 ? arguments[0] : 16;
-    this.loadFactor = arguments.length > 1 ? arguments[1] : 0.75;
-    this.clear();
-  }
-
-
-  clear() {
-    this.count = 0;
-    this.buckets = [];
-    this.buckets.length = this.initialCapacity;
-  }
-
-  clone() {
-    let map = new HashMap();
-    map.putAll(this);
-    return map;
-  }
-
-  containsKey(key) {
-    let buckets = this.buckets;
-    let index = getBucketIndex(buckets, key);
-    let bucket = buckets[index];
-    if (bucket === undefined) {
-      return false;
-    }
-    for (let i = 0; i < bucket.length; ++i) {
-      if (virtEquals$1(bucket[i].key, key)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  containsValue(value) {
-    let buckets = this.buckets;
-    for (let i = 0; i < buckets.length; ++i) {
-      let bucket = buckets[i];
-      if (bucket === undefined) {
-        continue;
-      }
-      for (let j = 0; j < bucket.length; ++j) {
-        if (virtEquals$1(bucket[j].value, value)) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  entrySet() {
-    let conversion = pair => new Entry(pair);
-    let isIn = pair => (pair instanceof Entry) && pair._isIn(this);
-    let removeItem = pair => this.remove(pair.getKey());
-    return new Set(this, conversion, isIn, removeItem);
-  }
-
-  get(key) {
-    let buckets = this.buckets;
-    let index = getBucketIndex(buckets, key);
-    let bucket = buckets[index];
-    if (bucket === undefined) {
-      return null;
-    }
-    for (let i = 0; i < bucket.length; ++i) {
-      if (virtEquals$1(bucket[i].key, key)) {
-        return bucket[i].value;
-      }
-    }
-    return null;
-  }
-
-  isEmpty() {
-    return this.count === 0;
-  }
-
-  keySet() {
-    let conversion = pair => pair.key;
-    let isIn = key => this.containsKey(key);
-    let removeItem = key => this.remove(key);
-    return new Set(this, conversion, isIn, removeItem);
-  }
-
-  values() {
-    let conversion = pair => pair.value;
-    let isIn = value => this.containsValue(value);
-    let removeItem = value => this.removeByValue(value);
-    return new Set(this, conversion, isIn, removeItem);
-  }
-
-  put(key, value) {
-    let buckets = this.buckets;
-    let index = getBucketIndex(buckets, key);
-    let bucket = buckets[index];
-    if (bucket === undefined) {
-      ++this.count;
-      buckets[index] = [{
-        key: key,
-        value: value
-      }];
-      ensureLoad(buckets, this.loadFactor, this.count);
-      return null;
-    }
-    for (let i = 0; i < bucket.length; ++i) {
-      if (virtEquals$1(bucket[i].key, key)) {
-        let previous = bucket[i].value;
-        bucket[i].value = value;
-        return previous;
-      }
-    }
-    ++this.count;
-    bucket.push({
-      key: key,
-      value: value
-    });
-    ensureLoad(buckets, this.loadFactor, this.count);
-    return null;
-  }
-
-  putAll(m) {
-    let it = m.entrySet().iterator();
-    while (it.hasNext()) {
-      let entry = it.next();
-      this.put(entry.getKey(), entry.getValue());
-    }
-  }
-
-  remove(key) {
-    let buckets = this.buckets;
-    let index = getBucketIndex(buckets, key);
-    let bucket = buckets[index];
-    if (bucket === undefined) {
-      return null;
-    }
-    for (let i = 0; i < bucket.length; ++i) {
-      if (virtEquals$1(bucket[i].key, key)) {
-        --this.count;
-        let previous = bucket[i].value;
-        bucket[i].removed = true;
-        if (bucket.length > 1) {
-          bucket.splice(i, 1);
-        } else {
-          buckets[index] = undefined;
-        }
-        return previous;
-      }
-    }
-    return null;
-  }
-
-  removeByValue(value) {
-    // FIXME: TODO: surely this can be done better now
-    let buckets = this.buckets, bucket, i, ilen, pair;
-    for (bucket in buckets) {
-      if (buckets.hasOwnProperty(bucket)) {
-        for (i = 0, ilen = buckets[bucket].length; i < ilen; i++) {
-          pair = buckets[bucket][i];
-          // removal on values is based on identity, not equality
-          if (pair.value === value) {
-            buckets[bucket].splice(i, 1);
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }
-
-  size() {
-    return this.count;
-  }
-
-  // toString override
-  toString() {
-    let buckets = this.buckets;
-    let rset = [];
-    buckets.forEach(bucket => {
-      bucket.forEach(pair => {
-        rset.push(pair.key + "=" + pair.value.toString());
-      });
-    });
-    return `{${ rset.join(',') }}`;
-  }
-}
-
-/**
-* [internal function] computeFontMetrics() calculates various metrics for text
-* placement. Currently this function computes the ascent, descent and leading
-* (from "lead", used for vertical space) values for the currently active font.
-*/
-function computeFontMetrics(pfont) {
-  var emQuad = 250,
-      correctionFactor = pfont.size / emQuad,
-      canvas = document.createElement("canvas");
-  canvas.width = 2*emQuad;
-  canvas.height = 2*emQuad;
-  canvas.style.opacity = 0;
-  var cfmFont = pfont.getCSSDefinition(emQuad+"px", "normal"),
-      ctx = canvas.getContext("2d");
-  ctx.font = cfmFont;
-
-  // Size the canvas using a string with common max-ascent and max-descent letters.
-  // Changing the canvas dimensions resets the context, so we must reset the font.
-  var protrusions = "dbflkhyjqpg";
-  canvas.width = ctx.measureText(protrusions).width;
-  ctx.font = cfmFont;
-
-  // for text lead values, we meaure a multiline text container.
-  var leadDiv = document.createElement("div");
-  leadDiv.style.position = "absolute";
-  leadDiv.style.opacity = 0;
-  leadDiv.style.fontFamily = '"' + pfont.name + '"';
-  leadDiv.style.fontSize = emQuad + "px";
-  leadDiv.innerHTML = protrusions + "<br/>" + protrusions;
-  document.body.appendChild(leadDiv);
-
-  var w = canvas.width,
-      h = canvas.height,
-      baseline = h/2;
-
-  // Set all canvas pixeldata values to 255, with all the content
-  // data being 0. This lets us scan for data[i] != 255.
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "black";
-  ctx.fillText(protrusions, 0, baseline);
-  var pixelData = ctx.getImageData(0, 0, w, h).data;
-
-  // canvas pixel data is w*4 by h*4, because R, G, B and A are separate,
-  // consecutive values in the array, rather than stored as 32 bit ints.
-  var i = 0,
-      w4 = w * 4,
-      len = pixelData.length;
-
-  // Finding the ascent uses a normal, forward scanline
-  while (++i < len && pixelData[i] === 255) {
-    noop();
-  }
-  var ascent = Math.round(i / w4);
-
-  // Finding the descent uses a reverse scanline
-  i = len - 1;
-  while (--i > 0 && pixelData[i] === 255) {
-    noop();
-  }
-  var descent = Math.round(i / w4);
-
-  // set font metrics
-  pfont.ascent = correctionFactor * (baseline - ascent);
-  pfont.descent = correctionFactor * (descent - baseline);
-
-  // Then we try to get the real value from the browser
-  if (document.defaultView.getComputedStyle) {
-    var leadDivHeight = document.defaultView.getComputedStyle(leadDiv,null).getPropertyValue("height");
-    leadDivHeight = correctionFactor * leadDivHeight.replace("px","");
-    if (leadDivHeight >= pfont.size * 2) {
-      pfont.leading = Math.round(leadDivHeight/2);
-    }
-  }
-  document.body.removeChild(leadDiv);
-
-  // if we're caching, cache the context used for this pfont
-  if (pfont.caching) {
-    return ctx;
-  }
-}
-
-const preloading = {
-  // template element used to compare font sizes
-  template: {},
-
-  // indicates whether or not the reference tiny font has been loaded
-  initialized: false,
-
-  // load the reference tiny font via a css @font-face rule
-  initialize: function() {
-    let generateTinyFont = function() {
-      let encoded = "#E3KAI2wAgT1MvMg7Eo3VmNtYX7ABi3CxnbHlm" +
-                    "7Abw3kaGVhZ7ACs3OGhoZWE7A53CRobXR47AY3" +
-                    "AGbG9jYQ7G03Bm1heH7ABC3CBuYW1l7Ae3AgcG" +
-                    "9zd7AI3AE#B3AQ2kgTY18PPPUACwAg3ALSRoo3" +
-                    "#yld0xg32QAB77#E777773B#E3C#I#Q77773E#" +
-                    "Q7777777772CMAIw7AB77732B#M#Q3wAB#g3B#" +
-                    "E#E2BB//82BB////w#B7#gAEg3E77x2B32B#E#" +
-                    "Q#MTcBAQ32gAe#M#QQJ#E32M#QQJ#I#g32Q77#";
-      let expand = function(input) {
-                     return "AAAAAAAA".substr(~~input ? 7-input : 6);
-                   };
-      return encoded.replace(/[#237]/g, expand);
-    };
-    let fontface = document.createElement("style");
-    fontface.setAttribute("type","text/css");
-    fontface.innerHTML =  "@font-face {\n" +
-                          '  font-family: "PjsEmptyFont";' + "\n" +
-                          "  src: url('data:application/x-font-ttf;base64,"+generateTinyFont()+"')\n" +
-                          "       format('truetype');\n" +
-                          "}";
-    document.head.appendChild(fontface);
-
-    // set up the template element
-    let element = document.createElement("span");
-    element.style.cssText = 'position: absolute; top: -1000; left: 0; opacity: 0; font-family: "PjsEmptyFont", fantasy;';
-    element.innerHTML = "AAAAAAAA";
-    document.body.appendChild(element);
-    this.template = element;
-
-    this.initialized = true;
-  },
-
-  // Shorthand function to get the computed width for an element.
-  getElementWidth: function(element) {
-    return document.defaultView.getComputedStyle(element,"").getPropertyValue("width");
-  },
-
-  // time taken so far in attempting to load a font
-  timeAttempted: 0,
-
-  // returns false if no fonts are pending load, or true otherwise.
-  pending: function(intervallength) {
-    if (!this.initialized) {
-      this.initialize();
-    }
-    let element,
-        computedWidthFont,
-        computedWidthRef = this.getElementWidth(this.template);
-    for (let i = 0; i < this.fontList.length; i++) {
-      // compares size of text in pixels. if equal, custom font is not yet loaded
-      element = this.fontList[i];
-      computedWidthFont = this.getElementWidth(element);
-      if (this.timeAttempted < 4000 && computedWidthFont === computedWidthRef) {
-        this.timeAttempted += intervallength;
-        return true;
-      } else {
-        document.body.removeChild(element);
-        this.fontList.splice(i--, 1);
-        this.timeAttempted = 0;
-      }
-    }
-    // if there are no more fonts to load, pending is false
-    if (this.fontList.length === 0) {
-      return false;
-    }
-    // We should have already returned before getting here.
-    // But, if we do get here, length!=0 so fonts are pending.
-    return true;
-  },
-
-  // fontList contains elements to compare font sizes against a template
-  fontList: [],
-
-  // addedList contains the fontnames of all the fonts loaded via @font-face
-  addedList: {},
-
-  // adds a font to the font cache
-  // creates an element using the font, to start loading the font,
-  // and compare against a default font to see if the custom font is loaded
-  add: function(fontSrc) {
-    console.log("XYZ");
-
-    if (!this.initialized) {
-     this.initialize();
-    }
-    // fontSrc can be a string or a javascript object
-    // acceptable fonts are .ttf, .otf, and data uri
-    let fontName = (typeof fontSrc === 'object' ? fontSrc.fontFace : fontSrc),
-        fontUrl = (typeof fontSrc === 'object' ? fontSrc.url : fontSrc);
-
-    // check whether we already created the @font-face rule for this font
-    if (this.addedList[fontName]) {
-      return;
-    }
-
-    // if we didn't, create the @font-face rule
-    let style = document.createElement("style");
-    style.setAttribute("type","text/css");
-    style.innerHTML = "@font-face{\n  font-family: '" + fontName + "';\n  src:  url('" + fontUrl + "');\n}\n";
-    document.head.appendChild(style);
-    this.addedList[fontName] = true;
-
-    // also create the element to load and compare the new font
-    let element = document.createElement("span");
-    element.style.cssText = "position: absolute; top: 0; left: 0; opacity: 0;";
-    element.style.fontFamily = '"' + fontName + '", "PjsEmptyFont", fantasy';
-    element.innerHTML = "AAAAAAAA";
-    document.body.appendChild(element);
-    this.fontList.push(element);
-  }
-};
-
-/**
- * Constructor for a system or from-file (non-SVG) font.
- */
-class PFont {
-  constructor(name, size) {
-    if (name === undef) {
-      name = "";
-    }
-    this.name = name;
-    if (size === undef) {
-      size = 0;
-    }
-    this.size = size;
-    this.glyph = false;
-    this.ascent = 0;
-    this.descent = 0;
-    // For leading, the "safe" value uses the standard TEX ratio of 1.2 em
-    this.leading = 1.2 * size;
-
-    // Note that an italic, bold font must used "... Bold Italic"
-    // in P5. "... Italic Bold" is treated as normal/normal.
-    let illegalIndicator = name.indexOf(" Italic Bold");
-    if (illegalIndicator !== -1) {
-      name = name.substring(0, illegalIndicator);
-    }
-
-    // determine font style
-    this.style = "normal";
-    let italicsIndicator = name.indexOf(" Italic");
-    if (italicsIndicator !== -1) {
-      name = name.substring(0, italicsIndicator);
-      this.style = "italic";
-    }
-
-    // determine font weight
-    this.weight = "normal";
-    let boldIndicator = name.indexOf(" Bold");
-    if (boldIndicator !== -1) {
-      name = name.substring(0, boldIndicator);
-      this.weight = "bold";
-    }
-
-    // determine font-family name
-    this.family = "sans-serif";
-    if (name !== undef) {
-      switch(name) {
-        case "sans-serif":
-        case "serif":
-        case "monospace":
-        case "fantasy":
-        case "cursive":
-          this.family = name;
-          break;
-        default:
-          this.family = '"' + name + '", sans-serif';
-          break;
-      }
-    }
-    // Calculate the ascent/descent/leading value based on how the browser renders this font.
-    this.context2d = computeFontMetrics(this);
-    this.css = this.getCSSDefinition();
-    if (this.context2d) {
-      this.context2d.font = this.css;
-    }
-  }
-
-  /**
-   * This function generates the CSS "font" string for this PFont
-   */
-  getCSSDefinition(fontSize, lineHeight) {
-    if(fontSize===undef) {
-      fontSize = this.size + "px";
-    }
-    if(lineHeight===undef) {
-      lineHeight = this.leading + "px";
-    }
-    // CSS "font" definition: font-style font-variant font-weight font-size/line-height font-family
-    let components = [this.style, "normal", this.weight, fontSize + "/" + lineHeight, this.family];
-    return components.join(" ");
-  }
-
-  /**
-   * Rely on the cached context2d measureText function.
-   */
-  measureTextWidth(string) {
-    return this.context2d.measureText(string).width;
-  }
-
-  /**
-   * FALLBACK FUNCTION -- replaces Pfont.prototype.measureTextWidth
-   * when the font cache becomes too large. This contructs a new
-   * canvas 2d context object for calling measureText on.
-   */
-  measureTextWidthFallback(string) {
-    let canvas = document.createElement("canvas"),
-        ctx = canvas.getContext("2d");
-    ctx.font = this.css;
-    return ctx.measureText(string).width;
-  }
-}
-
-
-/**
- * Global "loaded fonts" list, internal to PFont
- */
-PFont.PFontCache = { length: 0 };
-
-/**
- * This function acts as single access point for getting and caching
- * fonts across all sketches handled by an instance of Processing.js
- */
-PFont.get = function(fontName, fontSize) {
-  // round fontSize to one decimal point
-  fontSize = ((fontSize*10)+0.5|0)/10;
-  let cache = PFont.PFontCache,
-      idx = fontName+"/"+fontSize;
-  if (!cache[idx]) {
-    cache[idx] = new PFont(fontName, fontSize);
-    cache.length++;
-
-    // FALLBACK FUNCTIONALITY 1:
-    // If the cache has become large, switch over from full caching
-    // to caching only the static metrics for each new font request.
-    if (cache.length === 50) {
-      PFont.prototype.measureTextWidth = PFont.prototype.measureTextWidthFallback;
-      PFont.prototype.caching = false;
-      // clear contexts stored for each cached font
-      let entry;
-      for (entry in cache) {
-        if (entry !== "length") {
-          cache[entry].context2d = null;
-        }
-      }
-      return new PFont(fontName, fontSize);
-    }
-
-    // FALLBACK FUNCTIONALITY 2:
-    // If the cache has become too large, switch off font caching entirely.
-    if (cache.length === 400) {
-      PFont.PFontCache = {};
-      PFont.get = PFont.getFallback;
-      return new PFont(fontName, fontSize);
-    }
-  }
-  return cache[idx];
-};
-
-/**
- * regulates whether or not we're caching the canvas
- * 2d context for quick text width computation.
- */
-PFont.caching = true;
-
-/**
- * FALLBACK FUNCTION -- replaces PFont.get when the font cache
- * becomes too large. This function bypasses font caching entirely.
- */
-PFont.getFallback = function(fontName, fontSize) {
-  return new PFont(fontName, fontSize);
-};
-
-/**
- * Lists all standard fonts. Due to browser limitations, this list is
- * not the system font list, like in P5, but the CSS "genre" list.
- */
-PFont.list = function() {
-  return ["sans-serif", "serif", "monospace", "fantasy", "cursive"];
-};
-
-/**
- * Loading external fonts through @font-face rules is handled by PFont,
- * to ensure fonts loaded in this way are globally available.
- */
-PFont.preloading = preloading;
-
-/**
- * The "default scope" is effectively the Processing API, which is then
- * extended with a user's own sketch code.
- *
- * Changing of the prototype protects internal Processing code from
- * the changes in defaultScope [FIXME: TODO: what did we mean by this?]
- */
-
-// import PMatrix2D from "./Processing Objects/PMatrix2D"
-// import PMatrix3D from "./Processing Objects/PMatrix3D"
-// import PShape from "./Processing Objects/PShape"
-// import PShapeSVG from "./Processing Objects/PShapeSVG"
-// import PVector from "./Processing Objects/PVector"
-// import webcolors from "./Processing Objects/webcolors"
-// import XMLAttribute from "./Processing Objects/XMLAttribute"
-// import XMLElement from "./Processing Objects/XMLElement"
-
-let defaultScopes = {
-  ArrayList,
-  Char,
-  Character: Char,
-  HashMap,
-  PFont
-};
-
-// Due to the fact that PConstants is a massive list of values,
-// we can't cleanly set up this "inheritance" using ES6 classes.
-let DefaultScope = function DefaultScope() {};
-DefaultScope.prototype = PConstants$1;
-
-
-
-
-
-// =====================================================================
-//
-//    THIS IS STILL AN OLD FILE FROM THE ORIGINAL NODE-PROCESSING-JS
-//
-// =====================================================================
-
-
-
-/**
- * Processing.js default scope
- */
-function generateDefaultScope(additionalScopes) {
-
-  // bootstrap a default scope instance
-  additionalScopes = additionalScopes || {};
-  let scopes = Object.assign({}, defaultScopes, additionalScopes);
-  let defaultScope = new DefaultScope();
-  Object.keys(scopes).forEach(function(prop) {
-    defaultScope[prop] = scopes[prop];
-  });
-
-  ////////////////////////////////////////////////////////////////////////////
-  // Class inheritance helper methods
-  ////////////////////////////////////////////////////////////////////////////
-
-  defaultScope.defineProperty = function(obj, name, desc) {
-    if("defineProperty" in Object) {
-      Object.defineProperty(obj, name, desc);
-    } else {
-      if (desc.hasOwnProperty("get")) {
-        obj.__defineGetter__(name, desc.get);
-      }
-      if (desc.hasOwnProperty("set")) {
-        obj.__defineSetter__(name, desc.set);
-      }
-    }
-  };
-
-  /**
-   * class overloading, part 1
-   */
-  function overloadBaseClassFunction(object, name, basefn) {
-    if (!object.hasOwnProperty(name) || typeof object[name] !== 'function') {
-      // object method is not a function or just inherited from Object.prototype
-      object[name] = basefn;
-      return;
-    }
-    var fn = object[name];
-    if ("$overloads" in fn) {
-      // the object method already overloaded (see defaultScope.addMethod)
-      // let's just change a fallback method
-      fn.$defaultOverload = basefn;
-      return;
-    }
-    if (!("$overloads" in basefn) && fn.length === basefn.length) {
-      // special case when we just overriding the method
-      return;
-    }
-    var overloads, defaultOverload;
-    if ("$overloads" in basefn) {
-      // let's inherit base class overloads to speed up things
-      overloads = basefn.$overloads.slice(0);
-      overloads[fn.length] = fn;
-      defaultOverload = basefn.$defaultOverload;
-    } else {
-      overloads = [];
-      overloads[basefn.length] = basefn;
-      overloads[fn.length] = fn;
-      defaultOverload = fn;
-    }
-    var hubfn = function() {
-      var fn = hubfn.$overloads[arguments.length] ||
-               ("$methodArgsIndex" in hubfn && arguments.length > hubfn.$methodArgsIndex ?
-               hubfn.$overloads[hubfn.$methodArgsIndex] : null) ||
-               hubfn.$defaultOverload;
-      return fn.apply(this, arguments);
-    };
-    hubfn.$overloads = overloads;
-    if ("$methodArgsIndex" in basefn) {
-      hubfn.$methodArgsIndex = basefn.$methodArgsIndex;
-    }
-    hubfn.$defaultOverload = defaultOverload;
-    hubfn.name = name;
-    object[name] = hubfn;
-  }
-
-  /**
-   * class overloading, part 2
-   */
-  function extendClass(subClass, baseClass) {
-    function extendGetterSetter(propertyName) {
-      defaultScope.defineProperty(subClass, propertyName, {
-        get: function() {
-          return baseClass[propertyName];
-        },
-        set: function(v) {
-          baseClass[propertyName]=v;
-        },
-        enumerable: true
-      });
-    }
-
-    var properties = [];
-    for (var propertyName in baseClass) {
-      if (typeof baseClass[propertyName] === 'function') {
-        overloadBaseClassFunction(subClass, propertyName, baseClass[propertyName]);
-      } else if(propertyName.charAt(0) !== "$" && !(propertyName in subClass)) {
-        // Delaying the properties extension due to the IE9 bug (see #918).
-        properties.push(propertyName);
-      }
-    }
-    while (properties.length > 0) {
-      extendGetterSetter(properties.shift());
-    }
-
-    subClass.$super = baseClass;
-  }
-
-  /**
-   * class overloading, part 3
-   */
-  defaultScope.extendClassChain = function(base) {
-    var path = [base];
-    for (var self = base.$upcast; self; self = self.$upcast) {
-      extendClass(self, base);
-      path.push(self);
-      base = self;
-    }
-    while (path.length > 0) {
-      path.pop().$self=base;
-    }
-  };
-
-  // static
-  defaultScope.extendStaticMembers = function(derived, base) {
-    extendClass(derived, base);
-  };
-
-  // interface
-  defaultScope.extendInterfaceMembers = function(derived, base) {
-    extendClass(derived, base);
-  };
-
-  /**
-   * Java methods and JavaScript functions differ enough that
-   * we need a special function to make sure it all links up
-   * as classical hierarchical class chains.
-   */
-  defaultScope.addMethod = function(object, name, fn, hasMethodArgs) {
-    var existingfn = object[name];
-    if (existingfn || hasMethodArgs) {
-      var args = fn.length;
-      // builds the overload methods table
-      if ("$overloads" in existingfn) {
-        existingfn.$overloads[args] = fn;
-      } else {
-        var hubfn = function() {
-          var fn = hubfn.$overloads[arguments.length] ||
-                   ("$methodArgsIndex" in hubfn && arguments.length > hubfn.$methodArgsIndex ?
-                   hubfn.$overloads[hubfn.$methodArgsIndex] : null) ||
-                   hubfn.$defaultOverload;
-          return fn.apply(this, arguments);
-        };
-        var overloads = [];
-        if (existingfn) {
-          overloads[existingfn.length] = existingfn;
-        }
-        overloads[args] = fn;
-        hubfn.$overloads = overloads;
-        hubfn.$defaultOverload = existingfn || fn;
-        if (hasMethodArgs) {
-          hubfn.$methodArgsIndex = args;
-        }
-        hubfn.name = name;
-        object[name] = hubfn;
-      }
-    } else {
-      object[name] = fn;
-    }
-  };
-
-  // internal helper function
-  function isNumericalJavaType(type) {
-    if (typeof type !== "string") {
-      return false;
-    }
-    return ["byte", "int", "char", "color", "float", "long", "double"].indexOf(type) !== -1;
-  }
-
-  /**
-   * Java's arrays are pre-filled when declared with
-   * an initial size, but no content. JS arrays are not.
-   */
-  defaultScope.createJavaArray = function(type, bounds) {
-    var result = null,
-        defaultValue = null;
-    if (typeof type === "string") {
-      if (type === "boolean") {
-        defaultValue = false;
-      } else if (isNumericalJavaType(type)) {
-        defaultValue = 0;
-      }
-    }
-    if (typeof bounds[0] === 'number') {
-      var itemsCount = 0 | bounds[0];
-      if (bounds.length <= 1) {
-        result = [];
-        result.length = itemsCount;
-        for (var i = 0; i < itemsCount; ++i) {
-          result[i] = defaultValue;
-        }
-      } else {
-        result = [];
-        var newBounds = bounds.slice(1);
-        for (var j = 0; j < itemsCount; ++j) {
-          result.push(defaultScope.createJavaArray(type, newBounds));
-        }
-      }
-    }
-    return result;
-  };
-
-  // screenWidth and screenHeight are shared by all instances.
-  // and return the width/height of the browser's viewport.
-  defaultScope.defineProperty(defaultScope, 'screenWidth',
-    { get: function() { return window.innerWidth; } });
-
-  defaultScope.defineProperty(defaultScope, 'screenHeight',
-    { get: function() { return window.innerHeight; } });
-
-  return defaultScope;
-}
-
 // removes generics
 function removeGenerics(codeWoStrings) {
 	let genericsWereRemoved;
@@ -1827,7 +62,7 @@ function splitToAtoms(code) {
 
 // trims off leading and trailing spaces
 // returns an object. object.left, object.middle, object.right, object.untrim
-function trimSpaces$1(string) {
+function trimSpaces(string) {
   var m1 = /^\s*/.exec(string), result;
   if(m1[0].length === string.length) {
     result = {left: m1[0], middle: "", right: ""};
@@ -3059,7 +1294,7 @@ class Transformer {
       }
       return "[" + this.expandExpression(expr.substring(1, expr.length - 1)) + "]";
     }
-    let trimmed = trimSpaces$1(expr);
+    let trimmed = trimSpaces(expr);
     let result = preExpressionTransform(this, trimmed.middle);
     let atoms = this.atoms;
     result = result.replace(/"[ABC](\d+)"/g, (all, index) => this.expandExpression(atoms[index]));
@@ -3257,7 +1492,7 @@ class Transformer {
       methodsNames[i] = method.name;
     }
     for(i = 0, l = fields.length - 1; i < l; ++i) {
-      let field = trimSpaces$1(fields[i]);
+      let field = trimSpaces(fields[i]);
       fields[i] = this.transformClassField(field.middle);
     }
     let tail = fields.pop();
@@ -3306,7 +1541,7 @@ class Transformer {
       methods[i] = this.transformClassMethod(atoms[methods[i]]);
     }
     for(i = 0; i < fields.length - 1; ++i) {
-      let field = trimSpaces$1(fields[i]);
+      let field = trimSpaces(fields[i]);
       fields[i] = this.transformClassField(field.middle);
     }
     let tail = fields.pop();
@@ -3404,14 +1639,14 @@ class Transformer {
         if(trim(space).length !== 0) { continue; } // avoiding ?: construct
         res.push(new AstLabel(statements.substring(lastIndex, nextStatement.lastIndex)) );
       } else { // semicolon
-        let statement = trimSpaces$1(statements.substring(lastIndex, nextStatement.lastIndex - 1));
+        let statement = trimSpaces(statements.substring(lastIndex, nextStatement.lastIndex - 1));
         res.push(statement.left);
         res.push(this.transformStatement(statement.middle));
         res.push(statement.right + ";");
       }
       lastIndex = nextStatement.lastIndex;
     }
-    let statementsTail = trimSpaces$1(statements.substring(lastIndex));
+    let statementsTail = trimSpaces(statements.substring(lastIndex));
     res.push(statementsTail.left);
     if(statementsTail.middle !== "") {
       res.push(this.transformStatement(statementsTail.middle));
@@ -3424,7 +1659,7 @@ class Transformer {
    * ...
    */
   transformStatementsBlock(block) {
-    let content = trimSpaces$1(block.substring(1, block.length - 1));
+    let content = trimSpaces(block.substring(1, block.length - 1));
     return new AstStatementsBlock(this.transformStatements(content.middle));
   }
 }
@@ -3887,14 +2122,2575 @@ for (i = 0, l = names.length; i < l ; ++i) {
     globalNames[names[i]] = null;
 }
 
-var PConstants$2 = {
-  PI: Math.PI,
-  TAU: 2 * Math.PI
+/**
+ * Processing.js environment constants
+ */
+const PConstants = {
+    X: 0,
+    Y: 1,
+    Z: 2,
+
+    R: 3,
+    G: 4,
+    B: 5,
+    A: 6,
+
+    U: 7,
+    V: 8,
+
+    NX: 9,
+    NY: 10,
+    NZ: 11,
+
+    EDGE: 12,
+
+    // Stroke
+    SR: 13,
+    SG: 14,
+    SB: 15,
+    SA: 16,
+
+    SW: 17,
+
+    // Transformations (2D and 3D)
+    TX: 18,
+    TY: 19,
+    TZ: 20,
+
+    VX: 21,
+    VY: 22,
+    VZ: 23,
+    VW: 24,
+
+    // Material properties
+    AR: 25,
+    AG: 26,
+    AB: 27,
+
+    DR: 3,
+    DG: 4,
+    DB: 5,
+    DA: 6,
+
+    SPR: 28,
+    SPG: 29,
+    SPB: 30,
+
+    SHINE: 31,
+
+    ER: 32,
+    EG: 33,
+    EB: 34,
+
+    BEEN_LIT: 35,
+
+    VERTEX_FIELD_COUNT: 36,
+
+    // Renderers
+    P2D:    1,
+    JAVA2D: 1,
+    WEBGL:  2,
+    P3D:    2,
+    OPENGL: 2,
+    PDF:    0,
+    DXF:    0,
+
+    // Platform IDs
+    OTHER:   0,
+    WINDOWS: 1,
+    MAXOSX:  2,
+    LINUX:   3,
+
+    EPSILON: 0.0001,
+
+    MAX_FLOAT:  3.4028235e+38,
+    MIN_FLOAT: -3.4028235e+38,
+    MAX_INT:    2147483647,
+    MIN_INT:   -2147483648,
+
+    PI:         Math.PI,
+    TWO_PI:     2 * Math.PI,
+    TAU:        2 * Math.PI,
+    HALF_PI:    Math.PI / 2,
+    THIRD_PI:   Math.PI / 3,
+    QUARTER_PI: Math.PI / 4,
+
+    DEG_TO_RAD: Math.PI / 180,
+    RAD_TO_DEG: 180 / Math.PI,
+
+    WHITESPACE: " \t\n\r\f\u00A0",
+
+    // Color modes
+    RGB:   1,
+    ARGB:  2,
+    HSB:   3,
+    ALPHA: 4,
+    CMYK:  5,
+
+    // Image file types
+    TIFF:  0,
+    TARGA: 1,
+    JPEG:  2,
+    GIF:   3,
+
+    // Filter/convert types
+    BLUR:      11,
+    GRAY:      12,
+    INVERT:    13,
+    OPAQUE:    14,
+    POSTERIZE: 15,
+    THRESHOLD: 16,
+    ERODE:     17,
+    DILATE:    18,
+
+    // Blend modes
+    REPLACE:    0,
+    BLEND:      1 << 0,
+    ADD:        1 << 1,
+    SUBTRACT:   1 << 2,
+    LIGHTEST:   1 << 3,
+    DARKEST:    1 << 4,
+    DIFFERENCE: 1 << 5,
+    EXCLUSION:  1 << 6,
+    MULTIPLY:   1 << 7,
+    SCREEN:     1 << 8,
+    OVERLAY:    1 << 9,
+    HARD_LIGHT: 1 << 10,
+    SOFT_LIGHT: 1 << 11,
+    DODGE:      1 << 12,
+    BURN:       1 << 13,
+
+    // Color component bit masks
+    ALPHA_MASK: 0xff000000,
+    RED_MASK:   0x00ff0000,
+    GREEN_MASK: 0x0000ff00,
+    BLUE_MASK:  0x000000ff,
+
+    // Projection matrices
+    CUSTOM:       0,
+    ORTHOGRAPHIC: 2,
+    PERSPECTIVE:  3,
+
+    // Shapes
+    POINT:          2,
+    POINTS:         2,
+    LINE:           4,
+    LINES:          4,
+    TRIANGLE:       8,
+    TRIANGLES:      9,
+    TRIANGLE_STRIP: 10,
+    TRIANGLE_FAN:   11,
+    QUAD:           16,
+    QUADS:          16,
+    QUAD_STRIP:     17,
+    POLYGON:        20,
+    PATH:           21,
+    RECT:           30,
+    ELLIPSE:        31,
+    ARC:            32,
+    SPHERE:         40,
+    BOX:            41,
+
+    // Arc drawing modes
+    //OPEN:          1, // shared with Shape closing modes
+    CHORD:           2,
+    PIE:             3,
+
+
+    GROUP:          0,
+    PRIMITIVE:      1,
+    //PATH:         21, // shared with Shape PATH
+    GEOMETRY:       3,
+
+    // Shape Vertex
+    VERTEX:        0,
+    BEZIER_VERTEX: 1,
+    CURVE_VERTEX:  2,
+    BREAK:         3,
+    CLOSESHAPE:    4,
+
+    // Shape closing modes
+    OPEN:  1,
+    CLOSE: 2,
+
+    // Shape drawing modes
+    CORNER:          0, // Draw mode convention to use (x, y) to (width, height)
+    CORNERS:         1, // Draw mode convention to use (x1, y1) to (x2, y2) coordinates
+    RADIUS:          2, // Draw mode from the center, and using the radius
+    CENTER_RADIUS:   2, // Deprecated! Use RADIUS instead
+    CENTER:          3, // Draw from the center, using second pair of values as the diameter
+    DIAMETER:        3, // Synonym for the CENTER constant. Draw from the center
+    CENTER_DIAMETER: 3, // Deprecated! Use DIAMETER instead
+
+    // Text vertical alignment modes
+    BASELINE: 0,   // Default vertical alignment for text placement
+    TOP:      101, // Align text to the top
+    BOTTOM:   102, // Align text from the bottom, using the baseline
+
+    // UV Texture coordinate modes
+    NORMAL:     1,
+    NORMALIZED: 1,
+    IMAGE:      2,
+
+    // Text placement modes
+    MODEL: 4,
+    SHAPE: 5,
+
+    // Stroke modes
+    SQUARE:  'butt',
+    ROUND:   'round',
+    PROJECT: 'square',
+    MITER:   'miter',
+    BEVEL:   'bevel',
+
+    // Lighting modes
+    AMBIENT:     0,
+    DIRECTIONAL: 1,
+    //POINT:     2, Shared with Shape constant
+    SPOT:        3,
+
+    // Key constants
+
+    // Both key and keyCode will be equal to these values
+    BACKSPACE: 8,
+    TAB:       9,
+    ENTER:     10,
+    RETURN:    13,
+    ESC:       27,
+    DELETE:    127,
+    CODED:     0xffff,
+
+    // p.key will be CODED and p.keyCode will be this value
+    SHIFT:     16,
+    CONTROL:   17,
+    ALT:       18,
+    CAPSLK:    20,
+    PGUP:      33,
+    PGDN:      34,
+    END:       35,
+    HOME:      36,
+    LEFT:      37,
+    UP:        38,
+    RIGHT:     39,
+    DOWN:      40,
+    F1:        112,
+    F2:        113,
+    F3:        114,
+    F4:        115,
+    F5:        116,
+    F6:        117,
+    F7:        118,
+    F8:        119,
+    F9:        120,
+    F10:       121,
+    F11:       122,
+    F12:       123,
+    NUMLK:     144,
+    META:      157,
+    INSERT:    155,
+
+    // Cursor types
+    ARROW:    'default',
+    CROSS:    'crosshair',
+    HAND:     'pointer',
+    MOVE:     'move',
+    TEXT:     'text',
+    WAIT:     'wait',
+    NOCURSOR: "url('data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw=='), auto",
+
+    // Hints
+    DISABLE_OPENGL_2X_SMOOTH:     1,
+    ENABLE_OPENGL_2X_SMOOTH:     -1,
+    ENABLE_OPENGL_4X_SMOOTH:      2,
+    ENABLE_NATIVE_FONTS:          3,
+    DISABLE_DEPTH_TEST:           4,
+    ENABLE_DEPTH_TEST:           -4,
+    ENABLE_DEPTH_SORT:            5,
+    DISABLE_DEPTH_SORT:          -5,
+    DISABLE_OPENGL_ERROR_REPORT:  6,
+    ENABLE_OPENGL_ERROR_REPORT:  -6,
+    ENABLE_ACCURATE_TEXTURES:     7,
+    DISABLE_ACCURATE_TEXTURES:   -7,
+    HINT_COUNT:                  10,
+
+    // PJS defined constants
+    SINCOS_LENGTH:      720,       // every half degree
+    PRECISIONB:         15,        // fixed point precision is limited to 15 bits!!
+    PRECISIONF:         1 << 15,
+    PREC_MAXVAL:        (1 << 15) - 1,
+    PREC_ALPHA_SHIFT:   24 - 15,
+    PREC_RED_SHIFT:     16 - 15,
+    NORMAL_MODE_AUTO:   0,
+    NORMAL_MODE_SHAPE:  1,
+    NORMAL_MODE_VERTEX: 2,
+    MAX_LIGHTS:         8
 };
 
-var PConstants$3 = { PConstants: PConstants$2 };
+/**
+ * Returns Java equals() result for two objects. If the first object
+ * has the "equals" function, it preforms the call of this function.
+ * Otherwise the method uses the JavaScript === operator.
+ *
+ * @param {Object} obj          The first object.
+ * @param {Object} other        The second object.
+ *
+ * @returns {boolean}           true if the objects are equal.
+ */
+function virtEquals$1(obj, other) {
+  if (obj === null || other === null) {
+    return (obj === null) && (other === null);
+  }
+  if (typeof (obj) === "string") {
+    return obj === other;
+  }
+  if (typeof(obj) !== "object") {
+    return obj === other;
+  }
+  if (obj.equals instanceof Function) {
+    return obj.equals(other);
+  }
+  return obj === other;
+}
 
-var version = "1.0.0";
+/**
+ * Returns Java hashCode() result for the object. If the object has the "hashCode" function,
+ * it preforms the call of this function. Otherwise it uses/creates the "$id" property,
+ * which is used as the hashCode.
+ *
+ * @param {Object} obj          The object.
+ * @returns {int}               The object's hash code.
+ */
+function virtHashCode$1(obj, undef) {
+  if (typeof(obj) === "string") {
+    var hash = 0;
+    for (var i = 0; i < obj.length; ++i) {
+      hash = (hash * 31 + obj.charCodeAt(i)) & 0xFFFFFFFF;
+    }
+    return hash;
+  }
+  if (typeof(obj) !== "object") {
+    return obj & 0xFFFFFFFF;
+  }
+  if (obj.hashCode instanceof Function) {
+    return obj.hashCode();
+  }
+  if (obj.$id === undef) {
+      obj.$id = ((Math.floor(Math.random() * 0x10000) - 0x8000) << 16) | Math.floor(Math.random() * 0x10000);
+  }
+  return obj.$id;
+}
+
+class Iterator {
+  constructor(array) {
+    this.index = -1;
+    this.array = array;
+  }
+
+  hasNext() {
+    return (this.index + 1) < this.array.length;
+  }
+
+  next() {
+    return this.array[++this.index];
+  }
+
+  remove() {
+    this.array.splice(this.index--, 1);
+  }
+}
+
+class JavaBaseClass {
+
+	// void -> String
+	toString() {
+		return "JavaBaseClass";
+	}
+
+	// void -> integer
+	hashCode() {
+		return 0;
+	}
+
+}
+
+/**
+ * An ArrayList stores a variable number of objects.
+ *
+ * @param {int} initialCapacity optional defines the initial capacity of the list, it's empty by default
+ *
+ * @returns {ArrayList} new ArrayList object
+ */
+
+
+class ArrayList extends JavaBaseClass {
+  constructor(a) {
+    super();
+    this.array = [];
+    if (a && a.toArray) {
+      this.array = a.toArray();
+    }
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.get() Returns the element at the specified position in this list.
+   *
+   * @param {int} i index of element to return
+   *
+   * @returns {Object} the element at the specified position in this list.
+   */
+  get(i) {
+    return this.array[i];
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.contains() Returns true if this list contains the specified element.
+   *
+   * @param {Object} item element whose presence in this List is to be tested.
+   *
+   * @returns {boolean} true if the specified element is present; false otherwise.
+   */
+  contains(item) {
+    return this.indexOf(item)>-1;
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.indexOf() Returns the position this element takes in the list, or -1 if the element is not found.
+   *
+   * @param {Object} item element whose position in this List is to be tested.
+   *
+   * @returns {int} the list position that the first match for this element holds in the list, or -1 if it is not in the list.
+   */
+  indexOf(item) {
+    let array = this.array;
+    for (let i = 0, len = array.length; i < len; ++i) {
+      if (virtEquals$1(item, array[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.lastIndexOf() Returns the index of the last occurrence of the specified element in this list,
+   * or -1 if this list does not contain the element. More formally, returns the highest index i such that
+   * (o==null ? get(i)==null : o.equals(get(i))), or -1 if there is no such index.
+   *
+   * @param {Object} item element to search for.
+   *
+   * @returns {int} the index of the last occurrence of the specified element in this list, or -1 if this list does not contain the element.
+   */
+  lastIndexOf(item) {
+    let array = this.array;
+    for (let i = array.length-1; i >= 0; --i) {
+      if (virtEquals$1(item, array[i])) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.add() Adds the specified element to this list.
+   *
+   * @param {int}    index  optional index at which the specified element is to be inserted
+   * @param {Object} object element to be added to the list
+   */
+  add(index, object) {
+    let array = this.array;
+    // add(Object)
+    if (!object) {
+      object = index;
+      return array.push(object);
+    }
+    // add(i, Object)
+    if (typeof index === 'number') {
+      if (index < 0) {
+        throw new Error(`ArrayList.add(index,Object): index cannot be less than zero (found ${number}).`);
+      }
+      if (index >= array.length) {
+        throw new Error("ArrayList.add(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
+      }
+      return array.splice(index, 0, arguments[1]);
+    }
+    throw(`ArrayList.add(index,Object): index is not a number (found type ${typeof index} instead).`);
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.addAll(collection) appends all of the elements in the specified
+   * Collection to the end of this list, in the order that they are returned by
+   * the specified Collection's Iterator.
+   *
+   * When called as addAll(index, collection) the elements are inserted into
+   * this list at the position indicated by index.
+   *
+   * @param {index} Optional; specifies the position the colletion should be inserted at
+   * @param {collection} Any iterable object (ArrayList, HashMap.keySet(), etc.)
+   * @throws out of bounds error for negative index, or index greater than list size.
+   */
+  addAll(index, collection) {
+    let iterator;
+    let array = this.array;
+    // addAll(Collection)
+    if (!collection) {
+      collection = index;
+      iterator = new ObjectIterator(collection);
+      while (iterator.hasNext()) {
+        array.push(iterator.next());
+      }
+      return;
+    }
+    // addAll(int, Collection)
+    if (typeof index === "number") {
+      if (index < 0) {
+        throw new Error(`ArrayList.addAll(index,Object): index cannot be less than zero (found ${number}).`);
+      }
+      if (index >= array.length) {
+        throw new Error("ArrayList.addAll(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
+      }
+      iterator = new ObjectIterator(collection);
+      while (iterator.hasNext()) {
+        array.splice(index++, 0, iterator.next());
+      }
+      return;
+    }
+    throw(`ArrayList.addAll(index,collection): index is not a number (found type ${typeof index} instead).`);
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.set() Replaces the element at the specified position in this list with the specified element.
+   *
+   * @param {int}    index  index of element to replace
+   * @param {Object} object element to be stored at the specified position
+   */
+  set(index, object) {
+    let array = this.array;
+    if (!object) {
+      throw new Error(`ArrayList.set(index,Object): missing object argument.`);
+    }
+    if (typeof index === 'number') {
+      if (index < 0) {
+        throw new Error(`ArrayList.set(index,Object): index cannot be less than zero (found ${number}).`);
+      }
+      if (index >= array.length) {
+        throw new Error("ArrayList.set(index,Object): index cannot be higher than there are list elements (found ${number} for list size ${array.length}).");
+      }
+      return array.splice(index, 1, object);
+    }
+    throw(`ArrayList.set(index,Object): index is not a number (found type ${typeof index} instead).`);
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.size() Returns the number of elements in this list.
+   *
+   * @returns {int} the number of elements in this list
+   */
+  size() {
+    return this.array.length;
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.clear() Removes all of the elements from this list. The list will be empty after this call returns.
+   */
+  clear() {
+    this.array = [];
+  };
+
+  /**
+   * @member ArrayList
+   * ArrayList.remove() Removes an element either based on index, if the argument is a number, or
+   * by equality check, if the argument is an object.
+   *
+   * @param {int|Object} item either the index of the element to be removed, or the element itself.
+   *
+   * @returns {Object|boolean} If removal is by index, the element that was removed, or null if nothing was removed. If removal is by object, true if removal occurred, otherwise false.
+   */
+  remove(item) {
+    if (typeof item === 'number') {
+      return array.splice(item, 1)[0];
+    }
+    item = this.indexOf(item);
+    if (item > -1) {
+      array.splice(item, 1);
+      return true;
+    }
+    return false;
+  };
+
+   /**
+   * @member ArrayList
+   * ArrayList.removeAll Removes from this List all of the elements from
+   * the current ArrayList which are present in the passed in paramater ArrayList 'c'.
+   * Shifts any succeeding elements to the left (reduces their index).
+   *
+   * @param {ArrayList} the ArrayList to compare to the current ArrayList
+   *
+   * @returns {boolean} true if the ArrayList had an element removed; false otherwise
+   */
+  removeAll(other) {
+    let oldlist = this.array;
+    this.clear();
+    // For every item that exists in the original ArrayList and not in the 'other' ArrayList
+    // copy it into the empty 'this' ArrayList to create the new 'this' Array.
+    oldlist.forEach( (item,i) => {
+      if (!other.contains(item)) {
+        this.add(x++, item);
+      }
+    });
+    return (this.size() < newList.size());
+  }
+
+  /**
+   * @member ArrayList
+   * ArrayList.isEmpty() Tests if this list has no elements.
+   *
+   * @returns {boolean} true if this list has no elements; false otherwise
+   */
+  isEmpty() {
+    return this.array.length === 0;
+  };
+
+  /**
+   * @member ArrayList
+   * ArrayList.clone() Returns a shallow copy of this ArrayList instance. (The elements themselves are not copied.)
+   *
+   * @returns {ArrayList} a clone of this ArrayList instance
+   */
+  clone() {
+    return new ArrayList(this);
+  };
+
+  /**
+   * @member ArrayList
+   * ArrayList.toArray() Returns an array containing all of the elements in this list in the correct order.
+   *
+   * @returns {Object[]} Returns an array containing all of the elements in this list in the correct order
+   */
+  toArray() {
+    return this.array.slice();
+  };
+
+  /**
+   * FIXME: TODO: add missing documentation
+   */
+  iterator() {
+    return new Iterator(this.array);
+  }
+
+  /**
+   * toString override
+   */
+  toString() {
+    return `[${ this.array.map(e => e.toString()).join(',') }]`;
+  }
+}
+
+class Char$1 {
+  constructor(chr) {
+    let type = typeof chr;
+    if (type === 'string' && chr.length === 1) {
+      this.code = chr.charCodeAt(0);
+    } else if (type === 'number') {
+      this.code = chr;
+    } else if (chr instanceof Char$1) {
+      this.code = chr.code;
+    } else {
+      this.code = NaN;
+    }
+  };
+
+  toString() {
+    return String.fromCharCode(this.code);
+  }
+
+  valueOf() {
+    return this.code;
+  }
+}
+
+class HashmapIterator {
+  constructor(buckets, conversion, removeItem) {
+    this.buckets = buckets;
+    this.bucketIndex = 0;
+    this.itemIndex = -1;
+    this.endOfBuckets = false;
+    this.currentItem = undefined;
+    // and now start at "item one"
+    this.findNext();
+  }
+
+  findNext() {
+    while (!this.endOfBuckets) {
+      ++this.itemIndex;
+      if (this.bucketIndex >= buckets.length) {
+        this.endOfBuckets = true;
+      } else if (this.buckets[this.bucketIndex] === undefined || this.itemIndex >= this.buckets[this.bucketIndex].length) {
+        this.itemIndex = -1;
+        ++this.bucketIndex;
+      } else {
+        return;
+      }
+    }
+  }
+
+  /*
+  * @member Iterator
+  * Checks if the Iterator has more items
+  */
+  hasNext() {
+    return !this.endOfBuckets;
+  };
+
+  /*
+  * @member Iterator
+  * Return the next Item
+  */
+  next() {
+    this.currentItem = this.conversion(this.buckets[this.bucketIndex][this.itemIndex]);
+    this.findNext();
+    return currentItem;
+  };
+
+  /*
+  * @member Iterator
+  * Remove the current item
+  */
+  remove() {
+    if (this.currentItem !== undefined) {
+      this.removeItem(currentItem);
+      --this.itemIndex;
+      this.findNext();
+    }
+  };
+}
+
+class Set {
+
+  /**
+   * this takes three functions
+   * - conversion()
+   * - isIn()
+   * - removeItem()
+   */
+  constructor(hashMap, conversion, isIn, removeItem) {
+    this.hashMap = hashMap;
+    this.conversion = conversion;
+    this.isIn = isInt;
+    this.removeItem = removeItem;
+  }
+
+  clear() {
+    this.hashMap.clear();
+  }
+
+  contains(o) {
+    return this.isIn(o);
+  }
+
+  containsAll(o) {
+    var it = o.iterator();
+    while (it.hasNext()) {
+      if (!this.contains(it.next())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  isEmpty() {
+    return this.hashMap.isEmpty();
+  }
+
+  iterator() {
+    return new HashmapIterator(this.hashMap.buckets, conversion, removeItem);
+  }
+
+  remove(o) {
+    if (this.contains(o)) {
+      this.removeItem(o);
+      return true;
+    }
+    return false;
+  }
+
+  removeAll(c) {
+    var it = c.iterator();
+    var changed = false;
+    while (it.hasNext()) {
+      var item = it.next();
+      if (this.contains(item)) {
+        this.removeItem(item);
+        changed = true;
+      }
+    }
+    return true;
+  }
+
+  retainAll(c) {
+    var it = this.iterator();
+    var toRemove = [];
+    while (it.hasNext()) {
+      var entry = it.next();
+      if (!c.contains(entry)) {
+        toRemove.push(entry);
+      }
+    }
+    toRemove.forEach( e => this.removeItem(e));
+    return toRemove.length > 0;
+  }
+
+  size() {
+    return this.hashMap.size();
+  }
+
+  toArray() {
+    var result = [];
+    var it = this.iterator();
+    while (it.hasNext()) {
+      result.push(it.next());
+    }
+    return result;
+  };
+}
+
+class Entry {
+  constructor(hashMap, pair) {
+    this.hashMap = hashMap;
+    this.pair = pair;
+  }
+
+  _isIn(map) {
+    return map === this.hashMap && (this.pair.removed === undefined);
+  }
+
+  equals(o) {
+    return virtEquals(this.pair.key, o.getKey());
+  }
+
+  getKey() {
+    return this.pair.key;
+  }
+
+  getValue() {
+    return this.pair.value;
+  }
+
+  hashCode(o) {
+    return virtHashCode(this.pair.key);
+  }
+
+  setValue(value) {
+    let pair = this.pair;
+    let old = pair.value;
+    pair.value = value;
+    return old;
+  }
+}
+
+function getBucketIndex(buckets, key) {
+  let index = virtHashCode$1(key) % buckets.length;
+  return index < 0 ? buckets.length + index : index;
+}
+
+function ensureLoad(buckets, loadFactor, count) {
+  if (count <= loadFactor * buckets.length) {
+    return;
+  }
+  let allEntries = [];
+  buckets.forEach(bucket => {
+    if (bucket) {
+      allEntries = allEntries.concat(bucket);
+    }
+  });
+  let newBucketsLength = buckets.length * 2;
+  let newbuckets = [];
+  newbuckets.length = newBucketsLength;
+  allEntries.forEach(entry => {
+    let index = getBucketIndex(buckets, allEntries[j].key);
+    // FIXME: TODO: bit convoluted...?
+    let bucket = newbuckets[index];
+    if (bucket === undefined) {
+      newbuckets[index] = bucket = [];
+    }
+    bucket.push(allEntries[j]);
+  });
+  return buckets;
+}
+
+/**
+* A HashMap stores a collection of objects, each referenced by a key. This is similar to an Array, only
+* instead of accessing elements with a numeric index, a String  is used. (If you are familiar with
+* associative arrays from other languages, this is the same idea.)
+*
+* @param {int} initialCapacity          defines the initial capacity of the map, it's 16 by default
+* @param {float} loadFactor             the load factor for the map, the default is 0.75
+* @param {Map} m                        gives the new HashMap the same mappings as this Map
+*/
+class HashMap extends JavaBaseClass {
+
+  /**
+  * @member HashMap
+  * A HashMap stores a collection of objects, each referenced by a key. This is similar to an Array, only
+  * instead of accessing elements with a numeric index, a String  is used. (If you are familiar with
+  * associative arrays from other languages, this is the same idea.)
+  *
+  * @param {int} initialCapacity          defines the initial capacity of the map, it's 16 by default
+  * @param {float} loadFactor             the load factor for the map, the default is 0.75
+  * @param {Map} m                        gives the new HashMap the same mappings as this Map
+  */
+  constructor(other) {
+    super();
+    if (other instanceof HashMap) {
+      return arguments[0].clone();
+    }
+    this.initialCapacity = arguments.length > 0 ? arguments[0] : 16;
+    this.loadFactor = arguments.length > 1 ? arguments[1] : 0.75;
+    this.clear();
+  }
+
+
+  clear() {
+    this.count = 0;
+    this.buckets = [];
+    this.buckets.length = this.initialCapacity;
+  }
+
+  clone() {
+    let map = new HashMap();
+    map.putAll(this);
+    return map;
+  }
+
+  containsKey(key) {
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
+    if (bucket === undefined) {
+      return false;
+    }
+    for (let i = 0; i < bucket.length; ++i) {
+      if (virtEquals$1(bucket[i].key, key)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  containsValue(value) {
+    let buckets = this.buckets;
+    for (let i = 0; i < buckets.length; ++i) {
+      let bucket = buckets[i];
+      if (bucket === undefined) {
+        continue;
+      }
+      for (let j = 0; j < bucket.length; ++j) {
+        if (virtEquals$1(bucket[j].value, value)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  entrySet() {
+    let conversion = pair => new Entry(pair);
+    let isIn = pair => (pair instanceof Entry) && pair._isIn(this);
+    let removeItem = pair => this.remove(pair.getKey());
+    return new Set(this, conversion, isIn, removeItem);
+  }
+
+  get(key) {
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
+    if (bucket === undefined) {
+      return null;
+    }
+    for (let i = 0; i < bucket.length; ++i) {
+      if (virtEquals$1(bucket[i].key, key)) {
+        return bucket[i].value;
+      }
+    }
+    return null;
+  }
+
+  isEmpty() {
+    return this.count === 0;
+  }
+
+  keySet() {
+    let conversion = pair => pair.key;
+    let isIn = key => this.containsKey(key);
+    let removeItem = key => this.remove(key);
+    return new Set(this, conversion, isIn, removeItem);
+  }
+
+  values() {
+    let conversion = pair => pair.value;
+    let isIn = value => this.containsValue(value);
+    let removeItem = value => this.removeByValue(value);
+    return new Set(this, conversion, isIn, removeItem);
+  }
+
+  put(key, value) {
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
+    if (bucket === undefined) {
+      ++this.count;
+      buckets[index] = [{
+        key: key,
+        value: value
+      }];
+      ensureLoad(buckets, this.loadFactor, this.count);
+      return null;
+    }
+    for (let i = 0; i < bucket.length; ++i) {
+      if (virtEquals$1(bucket[i].key, key)) {
+        let previous = bucket[i].value;
+        bucket[i].value = value;
+        return previous;
+      }
+    }
+    ++this.count;
+    bucket.push({
+      key: key,
+      value: value
+    });
+    ensureLoad(buckets, this.loadFactor, this.count);
+    return null;
+  }
+
+  putAll(m) {
+    let it = m.entrySet().iterator();
+    while (it.hasNext()) {
+      let entry = it.next();
+      this.put(entry.getKey(), entry.getValue());
+    }
+  }
+
+  remove(key) {
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
+    if (bucket === undefined) {
+      return null;
+    }
+    for (let i = 0; i < bucket.length; ++i) {
+      if (virtEquals$1(bucket[i].key, key)) {
+        --this.count;
+        let previous = bucket[i].value;
+        bucket[i].removed = true;
+        if (bucket.length > 1) {
+          bucket.splice(i, 1);
+        } else {
+          buckets[index] = undefined;
+        }
+        return previous;
+      }
+    }
+    return null;
+  }
+
+  removeByValue(value) {
+    // FIXME: TODO: surely this can be done better now
+    let buckets = this.buckets, bucket, i, ilen, pair;
+    for (bucket in buckets) {
+      if (buckets.hasOwnProperty(bucket)) {
+        for (i = 0, ilen = buckets[bucket].length; i < ilen; i++) {
+          pair = buckets[bucket][i];
+          // removal on values is based on identity, not equality
+          if (pair.value === value) {
+            buckets[bucket].splice(i, 1);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  size() {
+    return this.count;
+  }
+
+  // toString override
+  toString() {
+    let buckets = this.buckets;
+    let rset = [];
+    buckets.forEach(bucket => {
+      bucket.forEach(pair => {
+        rset.push(pair.key + "=" + pair.value.toString());
+      });
+    });
+    return `{${ rset.join(',') }}`;
+  }
+}
+
+/**
+* [internal function] computeFontMetrics() calculates various metrics for text
+* placement. Currently this function computes the ascent, descent and leading
+* (from "lead", used for vertical space) values for the currently active font.
+*/
+function computeFontMetrics(pfont) {
+  var emQuad = 250,
+      correctionFactor = pfont.size / emQuad,
+      canvas = document.createElement("canvas");
+  canvas.width = 2*emQuad;
+  canvas.height = 2*emQuad;
+  canvas.style.opacity = 0;
+  var cfmFont = pfont.getCSSDefinition(emQuad+"px", "normal"),
+      ctx = canvas.getContext("2d");
+  ctx.font = cfmFont;
+
+  // Size the canvas using a string with common max-ascent and max-descent letters.
+  // Changing the canvas dimensions resets the context, so we must reset the font.
+  var protrusions = "dbflkhyjqpg";
+  canvas.width = ctx.measureText(protrusions).width;
+  ctx.font = cfmFont;
+
+  // for text lead values, we meaure a multiline text container.
+  var leadDiv = document.createElement("div");
+  leadDiv.style.position = "absolute";
+  leadDiv.style.opacity = 0;
+  leadDiv.style.fontFamily = '"' + pfont.name + '"';
+  leadDiv.style.fontSize = emQuad + "px";
+  leadDiv.innerHTML = protrusions + "<br/>" + protrusions;
+  document.body.appendChild(leadDiv);
+
+  var w = canvas.width,
+      h = canvas.height,
+      baseline = h/2;
+
+  // Set all canvas pixeldata values to 255, with all the content
+  // data being 0. This lets us scan for data[i] != 255.
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "black";
+  ctx.fillText(protrusions, 0, baseline);
+  var pixelData = ctx.getImageData(0, 0, w, h).data;
+
+  // canvas pixel data is w*4 by h*4, because R, G, B and A are separate,
+  // consecutive values in the array, rather than stored as 32 bit ints.
+  var i = 0,
+      w4 = w * 4,
+      len = pixelData.length;
+
+  // Finding the ascent uses a normal, forward scanline
+  while (++i < len && pixelData[i] === 255) {
+    noop();
+  }
+  var ascent = Math.round(i / w4);
+
+  // Finding the descent uses a reverse scanline
+  i = len - 1;
+  while (--i > 0 && pixelData[i] === 255) {
+    noop();
+  }
+  var descent = Math.round(i / w4);
+
+  // set font metrics
+  pfont.ascent = correctionFactor * (baseline - ascent);
+  pfont.descent = correctionFactor * (descent - baseline);
+
+  // Then we try to get the real value from the browser
+  if (document.defaultView.getComputedStyle) {
+    var leadDivHeight = document.defaultView.getComputedStyle(leadDiv,null).getPropertyValue("height");
+    leadDivHeight = correctionFactor * leadDivHeight.replace("px","");
+    if (leadDivHeight >= pfont.size * 2) {
+      pfont.leading = Math.round(leadDivHeight/2);
+    }
+  }
+  document.body.removeChild(leadDiv);
+
+  // if we're caching, cache the context used for this pfont
+  if (pfont.caching) {
+    return ctx;
+  }
+}
+
+const preloading = {
+  // template element used to compare font sizes
+  template: {},
+
+  // indicates whether or not the reference tiny font has been loaded
+  initialized: false,
+
+  // load the reference tiny font via a css @font-face rule
+  initialize: function() {
+    let generateTinyFont = function() {
+      let encoded = "#E3KAI2wAgT1MvMg7Eo3VmNtYX7ABi3CxnbHlm" +
+                    "7Abw3kaGVhZ7ACs3OGhoZWE7A53CRobXR47AY3" +
+                    "AGbG9jYQ7G03Bm1heH7ABC3CBuYW1l7Ae3AgcG" +
+                    "9zd7AI3AE#B3AQ2kgTY18PPPUACwAg3ALSRoo3" +
+                    "#yld0xg32QAB77#E777773B#E3C#I#Q77773E#" +
+                    "Q7777777772CMAIw7AB77732B#M#Q3wAB#g3B#" +
+                    "E#E2BB//82BB////w#B7#gAEg3E77x2B32B#E#" +
+                    "Q#MTcBAQ32gAe#M#QQJ#E32M#QQJ#I#g32Q77#";
+      let expand = function(input) {
+                     return "AAAAAAAA".substr(~~input ? 7-input : 6);
+                   };
+      return encoded.replace(/[#237]/g, expand);
+    };
+    let fontface = document.createElement("style");
+    fontface.setAttribute("type","text/css");
+    fontface.innerHTML =  "@font-face {\n" +
+                          '  font-family: "PjsEmptyFont";' + "\n" +
+                          "  src: url('data:application/x-font-ttf;base64,"+generateTinyFont()+"')\n" +
+                          "       format('truetype');\n" +
+                          "}";
+    document.head.appendChild(fontface);
+
+    // set up the template element
+    let element = document.createElement("span");
+    element.style.cssText = 'position: absolute; top: -1000; left: 0; opacity: 0; font-family: "PjsEmptyFont", fantasy;';
+    element.innerHTML = "AAAAAAAA";
+    document.body.appendChild(element);
+    this.template = element;
+
+    this.initialized = true;
+  },
+
+  // Shorthand function to get the computed width for an element.
+  getElementWidth: function(element) {
+    return document.defaultView.getComputedStyle(element,"").getPropertyValue("width");
+  },
+
+  // time taken so far in attempting to load a font
+  timeAttempted: 0,
+
+  // returns false if no fonts are pending load, or true otherwise.
+  pending: function(intervallength) {
+    if (!this.initialized) {
+      this.initialize();
+    }
+    let element,
+        computedWidthFont,
+        computedWidthRef = this.getElementWidth(this.template);
+    for (let i = 0; i < this.fontList.length; i++) {
+      // compares size of text in pixels. if equal, custom font is not yet loaded
+      element = this.fontList[i];
+      computedWidthFont = this.getElementWidth(element);
+      if (this.timeAttempted < 4000 && computedWidthFont === computedWidthRef) {
+        this.timeAttempted += intervallength;
+        return true;
+      } else {
+        document.body.removeChild(element);
+        this.fontList.splice(i--, 1);
+        this.timeAttempted = 0;
+      }
+    }
+    // if there are no more fonts to load, pending is false
+    if (this.fontList.length === 0) {
+      return false;
+    }
+    // We should have already returned before getting here.
+    // But, if we do get here, length!=0 so fonts are pending.
+    return true;
+  },
+
+  // fontList contains elements to compare font sizes against a template
+  fontList: [],
+
+  // addedList contains the fontnames of all the fonts loaded via @font-face
+  addedList: {},
+
+  // adds a font to the font cache
+  // creates an element using the font, to start loading the font,
+  // and compare against a default font to see if the custom font is loaded
+  add: function(fontSrc) {
+    if (!this.initialized) {
+     this.initialize();
+    }
+
+    // fontSrc can be a string or a javascript object
+    // acceptable fonts are .ttf, .otf, and data uri
+    let fontName = (typeof fontSrc === 'object' ? fontSrc.fontFace : fontSrc),
+        fontUrl = (typeof fontSrc === 'object' ? fontSrc.url : fontSrc);
+
+    // check whether we already created the @font-face rule for this font
+    if (this.addedList[fontName]) {
+      return;
+    }
+
+    // if we didn't, create the @font-face rule
+    let style = document.createElement("style");
+    style.setAttribute("type","text/css");
+    style.innerHTML = "@font-face{\n  font-family: '" + fontName + "';\n  src:  url('" + fontUrl + "');\n}\n";
+    document.head.appendChild(style);
+    this.addedList[fontName] = true;
+
+    // also create the element to load and compare the new font
+    let element = document.createElement("span");
+    element.style.cssText = "position: absolute; top: 0; left: 0; opacity: 0;";
+    element.style.fontFamily = '"' + fontName + '", "PjsEmptyFont", fantasy';
+    element.innerHTML = "AAAAAAAA";
+    document.body.appendChild(element);
+    this.fontList.push(element);
+  }
+};
+
+/**
+ * Constructor for a system or from-file (non-SVG) font.
+ */
+class PFont {
+  constructor(name, size) {
+    if (name === undef) {
+      name = "";
+    }
+    this.name = name;
+    if (size === undef) {
+      size = 0;
+    }
+    this.size = size;
+    this.glyph = false;
+    this.ascent = 0;
+    this.descent = 0;
+    // For leading, the "safe" value uses the standard TEX ratio of 1.2 em
+    this.leading = 1.2 * size;
+
+    // Note that an italic, bold font must used "... Bold Italic"
+    // in P5. "... Italic Bold" is treated as normal/normal.
+    let illegalIndicator = name.indexOf(" Italic Bold");
+    if (illegalIndicator !== -1) {
+      name = name.substring(0, illegalIndicator);
+    }
+
+    // determine font style
+    this.style = "normal";
+    let italicsIndicator = name.indexOf(" Italic");
+    if (italicsIndicator !== -1) {
+      name = name.substring(0, italicsIndicator);
+      this.style = "italic";
+    }
+
+    // determine font weight
+    this.weight = "normal";
+    let boldIndicator = name.indexOf(" Bold");
+    if (boldIndicator !== -1) {
+      name = name.substring(0, boldIndicator);
+      this.weight = "bold";
+    }
+
+    // determine font-family name
+    this.family = "sans-serif";
+    if (name !== undef) {
+      switch(name) {
+        case "sans-serif":
+        case "serif":
+        case "monospace":
+        case "fantasy":
+        case "cursive":
+          this.family = name;
+          break;
+        default:
+          this.family = '"' + name + '", sans-serif';
+          break;
+      }
+    }
+    // Calculate the ascent/descent/leading value based on how the browser renders this font.
+    this.context2d = computeFontMetrics(this);
+    this.css = this.getCSSDefinition();
+    if (this.context2d) {
+      this.context2d.font = this.css;
+    }
+  }
+
+  /**
+   * This function generates the CSS "font" string for this PFont
+   */
+  getCSSDefinition(fontSize, lineHeight) {
+    if(fontSize===undef) {
+      fontSize = this.size + "px";
+    }
+    if(lineHeight===undef) {
+      lineHeight = this.leading + "px";
+    }
+    // CSS "font" definition: font-style font-variant font-weight font-size/line-height font-family
+    let components = [this.style, "normal", this.weight, fontSize + "/" + lineHeight, this.family];
+    return components.join(" ");
+  }
+
+  /**
+   * Rely on the cached context2d measureText function.
+   */
+  measureTextWidth(string) {
+    return this.context2d.measureText(string).width;
+  }
+
+  /**
+   * FALLBACK FUNCTION -- replaces Pfont.prototype.measureTextWidth
+   * when the font cache becomes too large. This contructs a new
+   * canvas 2d context object for calling measureText on.
+   */
+  measureTextWidthFallback(string) {
+    let canvas = document.createElement("canvas"),
+        ctx = canvas.getContext("2d");
+    ctx.font = this.css;
+    return ctx.measureText(string).width;
+  }
+}
+
+
+/**
+ * Global "loaded fonts" list, internal to PFont
+ */
+PFont.PFontCache = { length: 0 };
+
+/**
+ * This function acts as single access point for getting and caching
+ * fonts across all sketches handled by an instance of Processing.js
+ */
+PFont.get = function(fontName, fontSize) {
+  // round fontSize to one decimal point
+  fontSize = ((fontSize*10)+0.5|0)/10;
+  let cache = PFont.PFontCache,
+      idx = fontName+"/"+fontSize;
+  if (!cache[idx]) {
+    cache[idx] = new PFont(fontName, fontSize);
+    cache.length++;
+
+    // FALLBACK FUNCTIONALITY 1:
+    // If the cache has become large, switch over from full caching
+    // to caching only the static metrics for each new font request.
+    if (cache.length === 50) {
+      PFont.prototype.measureTextWidth = PFont.prototype.measureTextWidthFallback;
+      PFont.prototype.caching = false;
+      // clear contexts stored for each cached font
+      let entry;
+      for (entry in cache) {
+        if (entry !== "length") {
+          cache[entry].context2d = null;
+        }
+      }
+      return new PFont(fontName, fontSize);
+    }
+
+    // FALLBACK FUNCTIONALITY 2:
+    // If the cache has become too large, switch off font caching entirely.
+    if (cache.length === 400) {
+      PFont.PFontCache = {};
+      PFont.get = PFont.getFallback;
+      return new PFont(fontName, fontSize);
+    }
+  }
+  return cache[idx];
+};
+
+/**
+ * regulates whether or not we're caching the canvas
+ * 2d context for quick text width computation.
+ */
+PFont.caching = true;
+
+/**
+ * FALLBACK FUNCTION -- replaces PFont.get when the font cache
+ * becomes too large. This function bypasses font caching entirely.
+ */
+PFont.getFallback = function(fontName, fontSize) {
+  return new PFont(fontName, fontSize);
+};
+
+/**
+ * Lists all standard fonts. Due to browser limitations, this list is
+ * not the system font list, like in P5, but the CSS "genre" list.
+ */
+PFont.list = function() {
+  return ["sans-serif", "serif", "monospace", "fantasy", "cursive"];
+};
+
+/**
+ * Loading external fonts through @font-face rules is handled by PFont,
+ * to ensure fonts loaded in this way are globally available.
+ */
+PFont.preloading = preloading;
+
+// Pseudo-random generator
+// see http://www.math.uni-bielefeld.de/~sillke/ALGORITHMS/random/marsaglia-c
+class Marsaglia$1 {
+  constructor(i1, i2) {
+    this.z=i1 || 362436069;
+    this.w= i2 || 521288629;
+  }
+
+  intGenerator() {
+    this.z=(36969*(this.z&65535)+(this.z>>>16)) & 0xFFFFFFFF;
+    this.w=(18000*(this.w&65535)+(this.w>>>16)) & 0xFFFFFFFF;
+    return (((this.z&0xFFFF)<<16) | (this.w&0xFFFF)) & 0xFFFFFFFF;
+  }
+
+  doubleGenerator() {
+    var i = this.intGenerator() / 4294967296;
+    return i < 0 ? 1 + i : i;
+  }
+
+  static createRandomized() {
+    var now = new Date();
+    return new Marsaglia$1((now / 60000) & 0xFFFFFFFF, now & 0xFFFFFFFF);
+  }
+}
+
+// Noise functions and helpers
+function PerlinNoise(seed) {
+  var rnd = seed !== undef ? new Marsaglia(seed, (seed<<16)+(seed>>16)) : Marsaglia.createRandomized();
+  var i, j;
+  // http://www.noisemachine.com/talk1/17b.html
+  // http://mrl.nyu.edu/~perlin/noise/
+  // generate permutation
+  var perm = new Uint8Array(512);
+  for(i=0;i<256;++i) { perm[i] = i; }
+  for(i=0;i<256;++i) {
+    // NOTE: we can only do this because we've made sure the Marsaglia generator
+    //       gives us numbers where the last byte in a pseudo-random number is
+    //       still pseudo-random. If no 2nd argument is passed in the constructor,
+    //       that is no longer the case and this pair swap will always run identically.
+    var t = perm[j = rnd.intGenerator() & 0xFF];
+    perm[j] = perm[i];
+    perm[i] = t;
+  }
+  // copy to avoid taking mod in perm[0];
+  for(i=0;i<256;++i) { perm[i + 256] = perm[i]; }
+
+  function grad3d(i,x,y,z) {
+    var h = i & 15; // convert into 12 gradient directions
+    var u = h<8 ? x : y,
+        v = h<4 ? y : h===12||h===14 ? x : z;
+    return ((h&1) === 0 ? u : -u) + ((h&2) === 0 ? v : -v);
+  }
+
+  function grad2d(i,x,y) {
+    var v = (i & 1) === 0 ? x : y;
+    return (i&2) === 0 ? -v : v;
+  }
+
+  function grad1d(i,x) {
+    return (i&1) === 0 ? -x : x;
+  }
+
+  function lerp(t,a,b) { return a + t * (b - a); }
+
+  this.noise3d = function(x, y, z) {
+    var X = Math.floor(x)&255, Y = Math.floor(y)&255, Z = Math.floor(z)&255;
+    x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+    var fx = (3-2*x)*x*x, fy = (3-2*y)*y*y, fz = (3-2*z)*z*z;
+    var p0 = perm[X]+Y, p00 = perm[p0] + Z, p01 = perm[p0 + 1] + Z,
+        p1 = perm[X + 1] + Y, p10 = perm[p1] + Z, p11 = perm[p1 + 1] + Z;
+    return lerp(fz,
+      lerp(fy, lerp(fx, grad3d(perm[p00], x, y, z), grad3d(perm[p10], x-1, y, z)),
+               lerp(fx, grad3d(perm[p01], x, y-1, z), grad3d(perm[p11], x-1, y-1,z))),
+      lerp(fy, lerp(fx, grad3d(perm[p00 + 1], x, y, z-1), grad3d(perm[p10 + 1], x-1, y, z-1)),
+               lerp(fx, grad3d(perm[p01 + 1], x, y-1, z-1), grad3d(perm[p11 + 1], x-1, y-1,z-1))));
+  };
+
+  this.noise2d = function(x, y) {
+    var X = Math.floor(x)&255, Y = Math.floor(y)&255;
+    x -= Math.floor(x); y -= Math.floor(y);
+    var fx = (3-2*x)*x*x, fy = (3-2*y)*y*y;
+    var p0 = perm[X]+Y, p1 = perm[X + 1] + Y;
+    return lerp(fy,
+      lerp(fx, grad2d(perm[p0], x, y), grad2d(perm[p1], x-1, y)),
+      lerp(fx, grad2d(perm[p0 + 1], x, y-1), grad2d(perm[p1 + 1], x-1, y-1)));
+  };
+
+  this.noise1d = function(x) {
+    var X = Math.floor(x)&255;
+    x -= Math.floor(x);
+    var fx = (3-2*x)*x*x;
+    return lerp(fx, grad1d(perm[X], x), grad1d(perm[X+1], x-1));
+  };
+}
+
+let noiseProfile = {
+  generator: undefined,
+  octaves: 4,
+  fallout: 0.5,
+  seed: undefined
+};
+
+let internalRandomGenerator = Math.random;
+
+class ProcessingMath {
+  /**
+  * Constrains a value to not exceed a maximum and minimum value.
+  *
+  * @param {int|float} value   the value to constrain
+  * @param {int|float} value   minimum limit
+  * @param {int|float} value   maximum limit
+  *
+  * @returns {int|float}
+  *
+  * @see max
+  * @see min
+  */
+  constrain(aNumber, aMin, aMax) {
+    return aNumber > aMax ? aMax : aNumber < aMin ? aMin : aNumber;
+  }
+
+  /**
+  * Calculates the distance between two points.
+  *
+  * @param {int|float} x1     int or float: x-coordinate of the first point
+  * @param {int|float} y1     int or float: y-coordinate of the first point
+  * @param {int|float} z1     int or float: z-coordinate of the first point
+  * @param {int|float} x2     int or float: x-coordinate of the second point
+  * @param {int|float} y2     int or float: y-coordinate of the second point
+  * @param {int|float} z2     int or float: z-coordinate of the second point
+  *
+  * @returns {float}
+  */
+  dist() {
+    var dx, dy, dz;
+    if (arguments.length === 4) {
+      dx = arguments[0] - arguments[2];
+      dy = arguments[1] - arguments[3];
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+    if (arguments.length === 6) {
+      dx = arguments[0] - arguments[3];
+      dy = arguments[1] - arguments[4];
+      dz = arguments[2] - arguments[5];
+      return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+  }
+
+  /**
+  * Calculates a number between two numbers at a specific increment. The amt  parameter is the
+  * amount to interpolate between the two values where 0.0 equal to the first point, 0.1 is very
+  * near the first point, 0.5 is half-way in between, etc. The lerp function is convenient for
+  * creating motion along a straight path and for drawing dotted lines.
+  *
+  * @param {int|float} value1       float or int: first value
+  * @param {int|float} value2       float or int: second value
+  * @param {int|float} amt          float: between 0.0 and 1.0
+  *
+  * @returns {float}
+  *
+  * @see curvePoint
+  * @see bezierPoint
+  */
+  lerp(value1, value2, amt) {
+    return ((value2 - value1) * amt) + value1;
+  }
+
+  /**
+  * Calculates the magnitude (or length) of a vector. A vector is a direction in space commonly
+  * used in computer graphics and linear algebra. Because it has no "start" position, the magnitude
+  * of a vector can be thought of as the distance from coordinate (0,0) to its (x,y) value.
+  * Therefore, mag() is a shortcut for writing "dist(0, 0, x, y)".
+  *
+  * @param {int|float} a       float or int: first value
+  * @param {int|float} b       float or int: second value
+  * @param {int|float} c       float or int: third value
+  *
+  * @returns {float}
+  *
+  * @see dist
+  */
+  mag(a, b, c) {
+    if (c) {
+      return Math.sqrt(a * a + b * b + c * c);
+    }
+
+    return Math.sqrt(a * a + b * b);
+  }
+
+  /**
+  * Re-maps a number from one range to another. In the example above, the number '25' is converted from
+  * a value in the range 0..100 into a value that ranges from the left edge (0) to the right edge (width) of the screen.
+  * Numbers outside the range are not clamped to 0 and 1, because out-of-range values are often intentional and useful.
+  *
+  * @param {float} value        The incoming value to be converted
+  * @param {float} istart       Lower bound of the value's current range
+  * @param {float} istop        Upper bound of the value's current range
+  * @param {float} ostart       Lower bound of the value's target range
+  * @param {float} ostop        Upper bound of the value's target range
+  *
+  * @returns {float}
+  *
+  * @see norm
+  * @see lerp
+  */
+  map(value, istart, istop, ostart, ostop) {
+    return ostart + (ostop - ostart) * ((value - istart) / (istop - istart));
+  }
+
+  /**
+  * Determines the largest value in a sequence of numbers.
+  *
+  * @param {int|float} value1         int or float
+  * @param {int|float} value2         int or float
+  * @param {int|float} value3         int or float
+  * @param {int|float} array          int or float array
+  *
+  * @returns {int|float}
+  *
+  * @see min
+  */
+  max() {
+    if (arguments.length === 2) {
+      return arguments[0] < arguments[1] ? arguments[1] : arguments[0];
+    }
+    var numbers = arguments.length === 1 ? arguments[0] : arguments; // if single argument, array is used
+    if (! ("length" in numbers && numbers.length > 0)) {
+      throw "Non-empty array is expected";
+    }
+    var max = numbers[0],
+      count = numbers.length;
+    for (var i = 1; i < count; ++i) {
+      if (max < numbers[i]) {
+        max = numbers[i];
+      }
+    }
+    return max;
+  }
+
+  /**
+  * Determines the smallest value in a sequence of numbers.
+  *
+  * @param {int|float} value1         int or float
+  * @param {int|float} value2         int or float
+  * @param {int|float} value3         int or float
+  * @param {int|float} array          int or float array
+  *
+  * @returns {int|float}
+  *
+  * @see max
+  */
+  min() {
+    if (arguments.length === 2) {
+      return arguments[0] < arguments[1] ? arguments[0] : arguments[1];
+    }
+    var numbers = arguments.length === 1 ? arguments[0] : arguments; // if single argument, array is used
+    if (! ("length" in numbers && numbers.length > 0)) {
+      throw "Non-empty array is expected";
+    }
+    var min = numbers[0],
+      count = numbers.length;
+    for (var i = 1; i < count; ++i) {
+      if (min > numbers[i]) {
+        min = numbers[i];
+      }
+    }
+    return min;
+  }
+
+  /**
+  * Normalizes a number from another range into a value between 0 and 1.
+  * Identical to map(value, low, high, 0, 1);
+  * Numbers outside the range are not clamped to 0 and 1, because out-of-range
+  * values are often intentional and useful.
+  *
+  * @param {float} aNumber    The incoming value to be converted
+  * @param {float} low        Lower bound of the value's current range
+  * @param {float} high       Upper bound of the value's current range
+  *
+  * @returns {float}
+  *
+  * @see map
+  * @see lerp
+  */
+  norm(aNumber, low, high) {
+    return (aNumber - low) / (high - low);
+  }
+
+  /**
+  * Squares a number (multiplies a number by itself). The result is always a positive number,
+  * as multiplying two negative numbers always yields a positive result. For example, -1 * -1 = 1.
+  *
+  * @param {float} value        int or float
+  *
+  * @returns {float}
+  *
+  * @see sqrt
+  */
+  sq(aNumber) {
+    return aNumber * aNumber;
+  }
+
+  /**
+  * Converts a radian measurement to its corresponding value in degrees. Radians and degrees are two ways of
+  * measuring the same thing. There are 360 degrees in a circle and 2*PI radians in a circle. For example,
+  * 90 degrees = PI/2 = 1.5707964. All trigonometric methods in Processing require their parameters to be specified in radians.
+  *
+  * @param {int|float} value        an angle in radians
+  *
+  * @returns {float}
+  *
+  * @see radians
+  */
+  degrees(aAngle) {
+    return (aAngle * 180) / Math.PI;
+  }
+
+  /**
+  * Generates random numbers. Each time the random() function is called, it returns an unexpected value within
+  * the specified range. If one parameter is passed to the function it will return a float between zero and the
+  * value of the high parameter. The function call random(5) returns values between 0 and 5 (starting at zero,
+  * up to but not including 5). If two parameters are passed, it will return a float with a value between the
+  * parameters. The function call random(-5, 10.2) returns values starting at -5 up to (but not including) 10.2.
+  * To convert a floating-point random number to an integer, use the int() function.
+  *
+  * @param {int|float} value1         if one parameter is used, the top end to random from, if two params the low end
+  * @param {int|float} value2         the top end of the random range
+  *
+  * @returns {float}
+  *
+  * @see randomSeed
+  * @see noise
+  */
+  random(aMin, aMax) {
+    if (arguments.length === 0) {
+      aMax = 1;
+      aMin = 0;
+    } else if (arguments.length === 1) {
+      aMax = aMin;
+      aMin = 0;
+    }
+    if (aMin === aMax) {
+      return aMin;
+    }
+    for (var i = 0; i < 100; i++) {
+      var ir = internalRandomGenerator();
+      var result = ir * (aMax - aMin) + aMin;
+      if (result !== aMax) {
+        return result;
+      }
+      // assertion: ir is never less than 0.5
+    }
+    return aMin;
+  }
+
+  /**
+  * Sets the seed value for random(). By default, random() produces different results each time the
+  * program is run. Set the value parameter to a constant to return the same pseudo-random numbers
+  * each time the software is run.
+  *
+  * @param {int|float} seed         int
+  *
+  * @see random
+  * @see noise
+  * @see noiseSeed
+  */
+  randomSeed(seed) {
+    internalRandomGenerator = (new Marsaglia$1(seed, (seed<<16)+(seed>>16))).doubleGenerator;
+    this.haveNextNextGaussian = false;
+  }
+
+  /**
+  * Returns a float from a random series of numbers having a mean of 0 and standard deviation of 1. Each time
+  * the randomGaussian() function is called, it returns a number fitting a Gaussian, or normal, distribution.
+  * There is theoretically no minimum or maximum value that randomGaussian() might return. Rather, there is just a
+  * very low probability that values far from the mean will be returned; and a higher probability that numbers
+  * near the mean will be returned.
+  *
+  * @returns {float}
+  *
+  * @see random
+  * @see noise
+  */
+  randomGaussian() {
+    if (this.haveNextNextGaussian) {
+      this.haveNextNextGaussian = false;
+      return this.nextNextGaussian;
+    }
+    var v1, v2, s;
+    do {
+      v1 = 2 * internalRandomGenerator() - 1; // between -1.0 and 1.0
+      v2 = 2 * internalRandomGenerator() - 1; // between -1.0 and 1.0
+      s = v1 * v1 + v2 * v2;
+    }
+    while (s >= 1 || s === 0);
+
+    var multiplier = Math.sqrt(-2 * Math.log(s) / s);
+    this.nextNextGaussian = v2 * multiplier;
+    this.haveNextNextGaussian = true;
+
+    return v1 * multiplier;
+  }
+
+  /**
+  * Returns the Perlin noise value at specified coordinates. Perlin noise is a random sequence
+  * generator producing a more natural ordered, harmonic succession of numbers compared to the
+  * standard random() function. It was invented by Ken Perlin in the 1980s and been used since
+  * in graphical applications to produce procedural textures, natural motion, shapes, terrains etc.
+  * The main difference to the random() function is that Perlin noise is defined in an infinite
+  * n-dimensional space where each pair of coordinates corresponds to a fixed semi-random value
+  * (fixed only for the lifespan of the program). The resulting value will always be between 0.0
+  * and 1.0. Processing can compute 1D, 2D and 3D noise, depending on the number of coordinates
+  * given. The noise value can be animated by moving through the noise space as demonstrated in
+  * the example above. The 2nd and 3rd dimension can also be interpreted as time.
+  * The actual noise is structured similar to an audio signal, in respect to the function's use
+  * of frequencies. Similar to the concept of harmonics in physics, perlin noise is computed over
+  * several octaves which are added together for the final result.
+  * Another way to adjust the character of the resulting sequence is the scale of the input
+  * coordinates. As the function works within an infinite space the value of the coordinates
+  * doesn't matter as such, only the distance between successive coordinates does (eg. when using
+  * noise() within a loop). As a general rule the smaller the difference between coordinates, the
+  * smoother the resulting noise sequence will be. Steps of 0.005-0.03 work best for most applications,
+  * but this will differ depending on use.
+  *
+  * @param {float} x          x coordinate in noise space
+  * @param {float} y          y coordinate in noise space
+  * @param {float} z          z coordinate in noise space
+  *
+  * @returns {float}
+  *
+  * @see random
+  * @see noiseDetail
+  */
+  noise(x, y, z) {
+    if(noiseProfile.generator === undef) {
+      // caching
+      noiseProfile.generator = new PerlinNoise(noiseProfile.seed);
+    }
+    var generator = noiseProfile.generator;
+    var effect = 1, k = 1, sum = 0;
+    for(var i=0; i<noiseProfile.octaves; ++i) {
+      effect *= noiseProfile.fallout;
+      switch (arguments.length) {
+      case 1:
+        sum += effect * (1 + generator.noise1d(k*x))/2; break;
+      case 2:
+        sum += effect * (1 + generator.noise2d(k*x, k*y))/2; break;
+      case 3:
+        sum += effect * (1 + generator.noise3d(k*x, k*y, k*z))/2; break;
+      }
+      k *= 2;
+    }
+    return sum;
+  }
+
+  /**
+  * Adjusts the character and level of detail produced by the Perlin noise function.
+  * Similar to harmonics in physics, noise is computed over several octaves. Lower octaves
+  * contribute more to the output signal and as such define the overal intensity of the noise,
+  * whereas higher octaves create finer grained details in the noise sequence. By default,
+  * noise is computed over 4 octaves with each octave contributing exactly half than its
+  * predecessor, starting at 50% strength for the 1st octave. This falloff amount can be
+  * changed by adding an additional function parameter. Eg. a falloff factor of 0.75 means
+  * each octave will now have 75% impact (25% less) of the previous lower octave. Any value
+  * between 0.0 and 1.0 is valid, however note that values greater than 0.5 might result in
+  * greater than 1.0 values returned by noise(). By changing these parameters, the signal
+  * created by the noise() function can be adapted to fit very specific needs and characteristics.
+  *
+  * @param {int} octaves          number of octaves to be used by the noise() function
+  * @param {float} falloff        falloff factor for each octave
+  *
+  * @see noise
+  */
+  noiseDetail(octaves, fallout) {
+    noiseProfile.octaves = octaves;
+    if(fallout !== undef) {
+      noiseProfile.fallout = fallout;
+    }
+  }
+
+  /**
+  * Sets the seed value for noise(). By default, noise() produces different results each
+  * time the program is run. Set the value parameter to a constant to return the same
+  * pseudo-random numbers each time the software is run.
+  *
+  * @param {int} seed         int
+  *
+  * @returns {float}
+  *
+  * @see random
+  * @see radomSeed
+  * @see noise
+  * @see noiseDetail
+  */
+  noiseSeed(seed) {
+    noiseProfile.seed = seed;
+    noiseProfile.generator = undef;
+  }
+}
+
+let undef$1 = undefined;
+
+function removeFirstArgument(args) {
+	return Array.from(args).slice(1);
+}
+
+class JavaProxies {
+
+  /**
+   * The contains(string) function returns true if the string passed in the parameter
+   * is a substring of this string. It returns false if the string passed
+   * in the parameter is not a substring of this string.
+   *
+   * @param {String} The string to look for in the current string
+   *
+   * @return {boolean} returns true if this string contains
+   * the string passed as parameter. returns false, otherwise.
+   *
+   */
+  static __contains(subject, subStr) {
+    if (typeof subject !== "string") {
+      return subject.contains.apply(subject, removeFirstArgument(arguments));
+    }
+    //Parameter is not null AND
+    //The type of the parameter is the same as this object (string)
+    //The javascript function that finds a substring returns 0 or higher
+    return (
+      (subject !== null) &&
+      (subStr !== null) &&
+      (typeof subStr === "string") &&
+      (subject.indexOf(subStr) > -1)
+    );
+  }
+
+  /**
+   * The __replaceAll() function searches all matches between a substring (or regular expression) and a string,
+   * and replaces the matched substring with a new substring
+   *
+   * @param {String} subject    a substring
+   * @param {String} regex      a substring or a regular expression
+   * @param {String} replace    the string to replace the found value
+   *
+   * @return {String} returns result
+   *
+   * @see #match
+   */
+  static __replaceAll(subject, regex, replacement) {
+    if (typeof subject !== "string") {
+      return subject.replaceAll.apply(subject, removeFirstArgument(arguments));
+    }
+
+    return subject.replace(new RegExp(regex, "g"), replacement);
+  }
+
+  /**
+   * The __replaceFirst() function searches first matche between a substring (or regular expression) and a string,
+   * and replaces the matched substring with a new substring
+   *
+   * @param {String} subject    a substring
+   * @param {String} regex      a substring or a regular expression
+   * @param {String} replace    the string to replace the found value
+   *
+   * @return {String} returns result
+   *
+   * @see #match
+   */
+  static __replaceFirst(subject, regex, replacement) {
+    if (typeof subject !== "string") {
+      return subject.replaceFirst.apply(subject, removeFirstArgument(arguments));
+    }
+
+    return subject.replace(new RegExp(regex, ""), replacement);
+  }
+
+  /**
+   * The __replace() function searches all matches between a substring and a string,
+   * and replaces the matched substring with a new substring
+   *
+   * @param {String} subject         a substring
+   * @param {String} what         a substring to find
+   * @param {String} replacement    the string to replace the found value
+   *
+   * @return {String} returns result
+   */
+  static __replace(subject, what, replacement) {
+    if (typeof subject !== "string") {
+      return subject.replace.apply(subject, removeFirstArgument(arguments));
+    }
+    if (what instanceof RegExp) {
+      return subject.replace(what, replacement);
+    }
+
+    if (typeof what !== "string") {
+      what = what.toString();
+    }
+    if (what === "") {
+      return subject;
+    }
+
+    var i = subject.indexOf(what);
+    if (i < 0) {
+      return subject;
+    }
+
+    var j = 0, result = "";
+    do {
+      result += subject.substring(j, i) + replacement;
+      j = i + what.length;
+    } while ( (i = subject.indexOf(what, j)) >= 0);
+    return result + subject.substring(j);
+  }
+
+  /**
+   * The __equals() function compares two strings (or objects) to see if they are the same.
+   * This method is necessary because it's not possible to compare strings using the equality operator (==).
+   * Returns true if the strings are the same and false if they are not.
+   *
+   * @param {String} subject  a string used for comparison
+   * @param {String} other  a string used for comparison with
+   *
+   * @return {boolean} true is the strings are the same false otherwise
+   */
+  static __equals(subject, other) {
+    if (subject.equals instanceof Function) {
+      return subject.equals.apply(subject, removeFirstArgument(arguments));
+    }
+
+    return virtEquals$1(subject, other);
+  }
+
+  /**
+   * The __equalsIgnoreCase() function compares two strings to see if they are the same.
+   * Returns true if the strings are the same, either when forced to all lower case or
+   * all upper case.
+   *
+   * @param {String} subject  a string used for comparison
+   * @param {String} other  a string used for comparison with
+   *
+   * @return {boolean} true is the strings are the same, ignoring case. false otherwise
+   */
+  static __equalsIgnoreCase(subject, other) {
+    if (typeof subject !== "string") {
+      return subject.equalsIgnoreCase.apply(subject, removeFirstArgument(arguments));
+    }
+
+    return subject.toLowerCase() === other.toLowerCase();
+  }
+
+  /**
+   * The __toCharArray() function splits the string into a char array.
+   *
+   * @param {String} subject The string
+   *
+   * @return {Char[]} a char array
+   */
+  static __toCharArray(subject) {
+    if (typeof subject !== "string") {
+      return subject.toCharArray.apply(subject, removeFirstArgument(arguments));
+    }
+
+    var chars = [];
+    for (var i = 0, len = subject.length; i < len; ++i) {
+      chars[i] = new Char(subject.charAt(i));
+    }
+    return chars;
+  }
+
+  /**
+   * The __split() function splits a string using the regex delimiter
+   * specified. If limit is specified, the resultant array will have number
+   * of elements equal to or less than the limit.
+   *
+   * @param {String} subject string to be split
+   * @param {String} regexp  regex string used to split the subject
+   * @param {int}    limit   max number of tokens to be returned
+   *
+   * @return {String[]} an array of tokens from the split string
+   */
+  static __split(subject, regex, limit) {
+    if (typeof subject !== "string") {
+      return subject.split.apply(subject, removeFirstArgument(arguments));
+    }
+
+    var pattern = new RegExp(regex);
+
+    // If limit is not specified, use JavaScript's built-in String.split.
+    if ((limit === undef$1) || (limit < 1)) {
+      return subject.split(pattern);
+    }
+
+    // If limit is specified, JavaScript's built-in String.split has a
+    // different behaviour than Java's. A Java-compatible implementation is
+    // provided here.
+    var result = [], currSubject = subject, pos;
+    while (((pos = currSubject.search(pattern)) !== -1) && (result.length < (limit - 1))) {
+      var match = pattern.exec(currSubject).toString();
+      result.push(currSubject.substring(0, pos));
+      currSubject = currSubject.substring(pos + match.length);
+    }
+    if ((pos !== -1) || (currSubject !== "")) {
+      result.push(currSubject);
+    }
+    return result;
+  }
+
+  /**
+   * The codePointAt() function returns the unicode value of the character at a given index of a string.
+   *
+   * @param  {int} idx         the index of the character
+   *
+   * @return {String} code     the String containing the unicode value of the character
+   */
+  static __codePointAt(subject, idx) {
+    var code = subject.charCodeAt(idx),
+        hi,
+        low;
+    if (0xD800 <= code && code <= 0xDBFF) {
+      hi = code;
+      low = subject.charCodeAt(idx + 1);
+      return ((hi - 0xD800) * 0x400) + (low - 0xDC00) + 0x10000;
+    }
+    return code;
+  }
+
+  /**
+   * The matches() function checks whether or not a string matches a given regular expression.
+   *
+   * @param {String} str      the String on which the match is tested
+   * @param {String} regexp   the regexp for which a match is tested
+   *
+   * @return {boolean} true if the string fits the regexp, false otherwise
+   */
+  static __matches(str, regexp) {
+    return (new RegExp(regexp)).test(str);
+  }
+
+  /**
+   * The startsWith() function tests if a string starts with the specified prefix.  If the prefix
+   * is the empty String or equal to the subject String, startsWith() will also return true.
+   *
+   * @param {String} prefix   the String used to compare against the start of the subject String.
+   * @param {int}    toffset  (optional) an offset into the subject String where searching should begin.
+   *
+   * @return {boolean} true if the subject String starts with the prefix.
+   */
+  static __startsWith(subject, prefix, toffset) {
+    if (typeof subject !== "string") {
+      return subject.startsWith.apply(subject, removeFirstArgument(arguments));
+    }
+
+    toffset = toffset || 0;
+    if (toffset < 0 || toffset > subject.length) {
+      return false;
+    }
+    return (prefix === '' || prefix === subject) ? true : (subject.indexOf(prefix) === toffset);
+  }
+
+  /**
+   * The endsWith() function tests if a string ends with the specified suffix.  If the suffix
+   * is the empty String, endsWith() will also return true.
+   *
+   * @param {String} suffix   the String used to compare against the end of the subject String.
+   *
+   * @return {boolean} true if the subject String starts with the prefix.
+   */
+  static __endsWith(subject, suffix) {
+    if (typeof subject !== "string") {
+      return subject.endsWith.apply(subject, removeFirstArgument(arguments));
+    }
+
+    var suffixLen = suffix ? suffix.length : 0;
+    return (suffix === '' || suffix === subject) ? true :
+      (subject.indexOf(suffix) === subject.length - suffixLen);
+  }
+
+  /**
+   * The returns hash code of the.
+   *
+   * @param {Object} subject The string
+   *
+   * @return {int} a hash code
+   */
+  static __hashCode(subject) {
+    if (subject.hashCode instanceof Function) {
+      return subject.hashCode.apply(subject, removeFirstArgument(arguments));
+    }
+    return virtHashCode$1(subject);
+  }
+
+  /**
+   * The __printStackTrace() prints stack trace to the console.
+   *
+   * @param {Exception} subject The error
+   */
+  static __printStackTrace(subject) {
+    console.error("Exception: " + subject.toString());
+  }
+}
+
+/**
+ * The "default scope" is effectively the Processing API, which is then
+ * extended with a user's own sketch code.
+ *
+ * Changing of the prototype protects internal Processing code from
+ * the changes in defaultScope [FIXME: TODO: what did we mean by this?]
+ */
+
+// import PMatrix2D from "./Processing Objects/PMatrix2D"
+// import PMatrix3D from "./Processing Objects/PMatrix3D"
+// import PShape from "./Processing Objects/PShape"
+// import PShapeSVG from "./Processing Objects/PShapeSVG"
+// import PVector from "./Processing Objects/PVector"
+// import webcolors from "./Processing Objects/webcolors"
+// import XMLAttribute from "./Processing Objects/XMLAttribute"
+// import XMLElement from "./Processing Objects/XMLElement"
+
+let defaultScopes = {
+  ArrayList,
+  Char: Char$1,
+  Character: Char$1,
+  HashMap,
+  PFont
+};
+
+let processingAPIs = [Math, ProcessingMath, JavaProxies];
+
+// Due to the fact that PConstants is a massive list of values,
+// we can't cleanly set up this "inheritance" using ES6 classes.
+let DefaultScope = function DefaultScope() {};
+DefaultScope.prototype = PConstants;
+
+
+
+
+
+// =====================================================================
+//
+//    THIS IS STILL AN OLD FILE FROM THE ORIGINAL NODE-PROCESSING-JS
+//
+// =====================================================================
+
+
+
+/**
+ * Processing.js default scope
+ */
+function generateDefaultScope(additionalScopes) {
+
+  // bootstrap a default scope instance
+  additionalScopes = additionalScopes || {};
+  let scopes = Object.assign({}, defaultScopes, additionalScopes);
+  let defaultScope = new DefaultScope();
+  Object.keys(scopes).forEach(prop => defaultScope[prop] = scopes[prop]);
+
+  // bootstrap the Processing API functions
+  processingAPIs.forEach(API => {
+    Object.getOwnPropertyNames(API).forEach(fname => {
+      if (fname === "length") return;
+      if (fname === "name") return;
+      if (fname === "prototype") return;
+      defaultScope[fname] = API[fname];
+    });
+  });
+
+
+  ////////////////////////////////////////////////////////////////////////////
+  // Class inheritance helper methods
+  ////////////////////////////////////////////////////////////////////////////
+
+  defaultScope.defineProperty = function(obj, name, desc) {
+    if("defineProperty" in Object) {
+      Object.defineProperty(obj, name, desc);
+    } else {
+      if (desc.hasOwnProperty("get")) {
+        obj.__defineGetter__(name, desc.get);
+      }
+      if (desc.hasOwnProperty("set")) {
+        obj.__defineSetter__(name, desc.set);
+      }
+    }
+  };
+
+  /**
+   * class overloading, part 1
+   */
+  function overloadBaseClassFunction(object, name, basefn) {
+    if (!object.hasOwnProperty(name) || typeof object[name] !== 'function') {
+      // object method is not a function or just inherited from Object.prototype
+      object[name] = basefn;
+      return;
+    }
+    var fn = object[name];
+    if ("$overloads" in fn) {
+      // the object method already overloaded (see defaultScope.addMethod)
+      // let's just change a fallback method
+      fn.$defaultOverload = basefn;
+      return;
+    }
+    if (!("$overloads" in basefn) && fn.length === basefn.length) {
+      // special case when we just overriding the method
+      return;
+    }
+    var overloads, defaultOverload;
+    if ("$overloads" in basefn) {
+      // let's inherit base class overloads to speed up things
+      overloads = basefn.$overloads.slice(0);
+      overloads[fn.length] = fn;
+      defaultOverload = basefn.$defaultOverload;
+    } else {
+      overloads = [];
+      overloads[basefn.length] = basefn;
+      overloads[fn.length] = fn;
+      defaultOverload = fn;
+    }
+    var hubfn = function() {
+      var fn = hubfn.$overloads[arguments.length] ||
+               ("$methodArgsIndex" in hubfn && arguments.length > hubfn.$methodArgsIndex ?
+               hubfn.$overloads[hubfn.$methodArgsIndex] : null) ||
+               hubfn.$defaultOverload;
+      return fn.apply(this, arguments);
+    };
+    hubfn.$overloads = overloads;
+    if ("$methodArgsIndex" in basefn) {
+      hubfn.$methodArgsIndex = basefn.$methodArgsIndex;
+    }
+    hubfn.$defaultOverload = defaultOverload;
+    hubfn.name = name;
+    object[name] = hubfn;
+  }
+
+  /**
+   * class overloading, part 2
+   */
+  function extendClass(subClass, baseClass) {
+    function extendGetterSetter(propertyName) {
+      defaultScope.defineProperty(subClass, propertyName, {
+        get: function() {
+          return baseClass[propertyName];
+        },
+        set: function(v) {
+          baseClass[propertyName]=v;
+        },
+        enumerable: true
+      });
+    }
+
+    var properties = [];
+    for (var propertyName in baseClass) {
+      if (typeof baseClass[propertyName] === 'function') {
+        overloadBaseClassFunction(subClass, propertyName, baseClass[propertyName]);
+      } else if(propertyName.charAt(0) !== "$" && !(propertyName in subClass)) {
+        // Delaying the properties extension due to the IE9 bug (see #918).
+        properties.push(propertyName);
+      }
+    }
+    while (properties.length > 0) {
+      extendGetterSetter(properties.shift());
+    }
+
+    subClass.$super = baseClass;
+  }
+
+  /**
+   * class overloading, part 3
+   */
+  defaultScope.extendClassChain = function(base) {
+    var path = [base];
+    for (var self = base.$upcast; self; self = self.$upcast) {
+      extendClass(self, base);
+      path.push(self);
+      base = self;
+    }
+    while (path.length > 0) {
+      path.pop().$self=base;
+    }
+  };
+
+  // static
+  defaultScope.extendStaticMembers = function(derived, base) {
+    extendClass(derived, base);
+  };
+
+  // interface
+  defaultScope.extendInterfaceMembers = function(derived, base) {
+    extendClass(derived, base);
+  };
+
+  /**
+   * Java methods and JavaScript functions differ enough that
+   * we need a special function to make sure it all links up
+   * as classical hierarchical class chains.
+   */
+  defaultScope.addMethod = function(object, name, fn, hasMethodArgs) {
+    var existingfn = object[name];
+    if (existingfn || hasMethodArgs) {
+      var args = fn.length;
+      // builds the overload methods table
+      if ("$overloads" in existingfn) {
+        existingfn.$overloads[args] = fn;
+      } else {
+        var hubfn = function() {
+          var fn = hubfn.$overloads[arguments.length] ||
+                   ("$methodArgsIndex" in hubfn && arguments.length > hubfn.$methodArgsIndex ?
+                   hubfn.$overloads[hubfn.$methodArgsIndex] : null) ||
+                   hubfn.$defaultOverload;
+          return fn.apply(this, arguments);
+        };
+        var overloads = [];
+        if (existingfn) {
+          overloads[existingfn.length] = existingfn;
+        }
+        overloads[args] = fn;
+        hubfn.$overloads = overloads;
+        hubfn.$defaultOverload = existingfn || fn;
+        if (hasMethodArgs) {
+          hubfn.$methodArgsIndex = args;
+        }
+        hubfn.name = name;
+        object[name] = hubfn;
+      }
+    } else {
+      object[name] = fn;
+    }
+  };
+
+  // internal helper function
+  function isNumericalJavaType(type) {
+    if (typeof type !== "string") {
+      return false;
+    }
+    return ["byte", "int", "char", "color", "float", "long", "double"].indexOf(type) !== -1;
+  }
+
+  /**
+   * Java's arrays are pre-filled when declared with
+   * an initial size, but no content. JS arrays are not.
+   */
+  defaultScope.createJavaArray = function(type, bounds) {
+    var result = null,
+        defaultValue = null;
+    if (typeof type === "string") {
+      if (type === "boolean") {
+        defaultValue = false;
+      } else if (isNumericalJavaType(type)) {
+        defaultValue = 0;
+      }
+    }
+    if (typeof bounds[0] === 'number') {
+      var itemsCount = 0 | bounds[0];
+      if (bounds.length <= 1) {
+        result = [];
+        result.length = itemsCount;
+        for (var i = 0; i < itemsCount; ++i) {
+          result[i] = defaultValue;
+        }
+      } else {
+        result = [];
+        var newBounds = bounds.slice(1);
+        for (var j = 0; j < itemsCount; ++j) {
+          result.push(defaultScope.createJavaArray(type, newBounds));
+        }
+      }
+    }
+    return result;
+  };
+
+  // screenWidth and screenHeight are shared by all instances.
+  // and return the width/height of the browser's viewport.
+  defaultScope.defineProperty(defaultScope, 'screenWidth',
+    { get: function() { return window.innerWidth; } });
+
+  defaultScope.defineProperty(defaultScope, 'screenHeight',
+    { get: function() { return window.innerHeight; } });
+
+  return defaultScope;
+}
+
+var version = "0.0.0";
 
 /**
  * Root of a Processing AST
@@ -3926,7 +4722,7 @@ class Ast {
         return name$$1;
       }
       if(globalNames.hasOwnProperty(name$$1) ||
-         PConstants$3.hasOwnProperty(name$$1) ||
+         PConstants.hasOwnProperty(name$$1) ||
          this.defaultScope.hasOwnProperty(name$$1)) {
         return "$p." + name$$1;
       }
@@ -3962,6 +4758,7 @@ class Ast {
      `// this code was autogenerated by ProcessingJS-ES7 version ${version}`
     ,`(function(PJS) {`
     ,`  let $p = PJS.generateDefaultScope();`
+    ,`  $p.id = {{ SKETCH_ID_PLACEHOLDER }};`
     ,`  ${ classes }`
     ,`  ${ otherStatements }`
     ,`  PJS.onSketchLoad($p);`
@@ -4137,7 +4934,67 @@ function injectStrings(code, strings) {
   });
 }
 
-//import Sketch from "./Sketch";
+function noop$1() {}
+
+let emptyhooks = {
+  preSetup: noop$1,
+  postSetup: noop$1,
+  preDraw: noop$1,
+  postDraw: noop$1
+};
+
+class SketchRunner {
+  constructor(data) {
+  	this.sketch = data.sketch;
+  	this.target = data.target;
+  	this.hooks = Object.assign({}, emptyhooks, data.hooks);
+  	this.cache = {};
+  }
+
+  /**
+   * start running a sketch
+   */
+  run() {
+  	// setup
+  	if (this.sketch.setup) {
+      this.__pre_setup();
+      this.sketch.setup();
+      this.__post_setup();
+    }
+    // draw
+    if (this.sketch.draw) {
+	    this.__pre_draw();
+	    this.sketch.draw();
+	    this.__post_draw();
+	    // and then we either animate or we don't, depending on sketch.noLoop
+	}
+  }
+
+  //  hook opportunity
+  __pre_setup() {
+  	this.hooks.preSetup();
+  }
+
+  // hook opportunity
+  __post_setup() {
+    this.hooks.postSetup();
+  }
+
+  // before we start drawing, some draw context needs
+  // to be cached, as some context changes reset after
+  // a frame has been drawn and draw() returns.
+  __pre_draw() {
+    this.hooks.preDraw(this.context);
+  	this.cache.context = this.context;
+  }
+
+  // hook opportunity
+  __post_draw() {
+  	this.hooks.postDraw(this.context);
+    this.context = this.cache.context;
+  }
+}
+
 var staticSketchList = [];
 
 /**
@@ -4193,16 +5050,13 @@ var Processing = {
   /**
    * inject a sketch into the page
    */
-  injectSketch(sketchSourceCode, document) {
-    if (typeof document === "undefined") {
-      throw new Error("The `document` namespace could not be found for injecting a sketch");
-    }
-
+  injectSketch(sketchSourceCode, target, additionalScopes, hooks) {
     let id = staticSketchList.length;
+
+    staticSketchList[id] = { sketch: undefined, target, hooks };
+
     let old = document.querySelector(`#processing-sketch-${id}`);
-    if (old) {
-      return;
-    }
+    if (old) { return; }
 
     let script = document.createElement("script");
     script.id = `processing-sketch-${id}`;
@@ -4234,23 +5088,10 @@ var Processing = {
    */
   onSketchLoad(sketch) {
     let id = sketch.id;
-    staticSketchList[id] = sketch;
-    console.log("received Sketch");
-    console.log(sketch);
-    // ... code goes here ...
-  },
-
-  /**
-   * start running a sketch
-   */
-  execute(sketch, target, hooks) {
-    sketch.__pre__setup(hooks);
-    sketch.setup();
-    sketch.__post__setup();
-
-    sketch.__pre_draw();
-    sketch.draw();
-    sketch.__post_draw();
+    let data = staticSketchList[id];
+    data.sketch = sketch;
+    let runner = new SketchRunner(data);
+    runner.run();
   },
 
   /**
@@ -4269,7 +5110,7 @@ var Processing = {
     .then( set => Processing.aggregate(set))
     .then( source => Processing.parse(source))
     .then( ast => Processing.convert(ast, additionalScopes))
-    .then( sketchSource => Processing.injectSketch(sketchSource))
+    .then( sketchSource => Processing.injectSketch(sketchSource, target, additionalScopes, hooks))
     .catch( error => {
       if (hooks && hooks.onerror) {
         hooks.onerror(error);

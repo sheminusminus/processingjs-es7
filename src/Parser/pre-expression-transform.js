@@ -1,3 +1,5 @@
+import { trim, trimSpaces } from "./trim-spaces";
+
 export default function preExpressionTransform(transformer, expr) {
   let s = expr;
   let atoms = transformer.atoms;

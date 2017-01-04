@@ -302,5 +302,4 @@ const PConstants = {
     MAX_LIGHTS:         8
 };
 
-export default { PConstants };
-
+export default PConstants;

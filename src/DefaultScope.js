@@ -11,6 +11,8 @@ import ArrayList from "./Processing Objects/ArrayList"
 import Char from "./Processing Objects/Char"
 import HashMap from "./Processing Objects/HashMap/HashMap"
 import PFont from "./Processing Objects/PFont/PFont"
+import ProcessingMath from "./Processing Objects/Math/ProcessingMath";
+import JavaProxies from "./JavaProxies"
 
 // import PMatrix2D from "./Processing Objects/PMatrix2D"
 // import PMatrix3D from "./Processing Objects/PMatrix3D"
@@ -28,6 +30,8 @@ let defaultScopes = {
   HashMap,
   PFont
 };
+
+let processingAPIs = [Math, ProcessingMath, JavaProxies];
 
 // Due to the fact that PConstants is a massive list of values,
 // we can't cleanly set up this "inheritance" using ES6 classes.
@@ -55,9 +59,18 @@ export default function generateDefaultScope(additionalScopes) {
   additionalScopes = additionalScopes || {};
   let scopes = Object.assign({}, defaultScopes, additionalScopes);
   let defaultScope = new DefaultScope();
-  Object.keys(scopes).forEach(function(prop) {
-    defaultScope[prop] = scopes[prop];
+  Object.keys(scopes).forEach(prop => defaultScope[prop] = scopes[prop]);
+
+  // bootstrap the Processing API functions
+  processingAPIs.forEach(API => {
+    Object.getOwnPropertyNames(API).forEach(fname => {
+      if (fname === "length") return;
+      if (fname === "name") return;
+      if (fname === "prototype") return;
+      defaultScope[fname] = API[fname];
+    })
   });
+
 
   ////////////////////////////////////////////////////////////////////////////
   // Class inheritance helper methods

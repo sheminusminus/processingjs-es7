@@ -17,49 +17,33 @@
     </script>
 
     <script type="text/processing" id="source">
-      /* @pjs font="Pamega.ttf"; */
-
-  	  class Cake {
-        int a = 0;
-        boolean test(boolean okay) {
-          return true;
-  	    }
-  	    static boolean test2(boolean okay) {
-  	      return false;
-  	    }
-  	  }
+	    float f = sin(HALF_PI + 0.1);
 
       void setup() {
-  	    Cake c = new Cake();
-        ArrayList al = new ArrayList();
-        Char c = new Char('w');
-
-        //noLoop();
-
-        HashMap hm = new HashMap();
-        hm.put("test", "cow");
-        hm.put(123, "lols");
-        console.log(hm.toString());
-  	  }
-
-      void draw() {
-  	    //background(255);
-        PFont pf = loadFont('Pamega.ttf');
-  	  }
-
-      void test() {
-        println("this is a test");
+        String s = "" + f;
+        console.log('s:', s, ', s.contains("e"):', s.contains("e"));
       }
     </script>
 
+    <canvas id="target">
+      It would appear your browser does not support the &lt;canvas&gt; element.
+    </canvas>
+
     <script>
-    	var code = document.getElementById('source').textContent;
+    	let code = document.getElementById('source').textContent;
+
+      let target = document.getElementById('target');
+
+      let hooks = {
+        preSetup: (...e) => console.log(`presetup ${e}`),
+        postSetup: (...e) => console.log(`postsetup ${e}`),
+        preDraw: (...e) => console.log(`predraw ${e}`),
+        postDraw: (...e) => console.log(`postdraw ${e}`)
+      };
+
     	Processing.parse(code)
-    	          .then(ast => {
-                  console.log(ast);
-                  return Processing.convert(ast);
-                })
-    	          .then(res => Processing.injectSketch(res, document))
+    	          .then(ast => Processing.convert(ast))
+    	          .then(res => Processing.injectSketch(res, target, {}, hooks))
     	          .catch(error => console.error(error));
     </script>
   </body>
