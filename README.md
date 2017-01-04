@@ -26,7 +26,7 @@ The sketch then attaches itself to the Processing object, which kicks off actual
 
 ## Specific Licenses
 
-The Processing.js code is licensed under the same terms as listed on http://github.com/processing-js/processing-js
+The Processing.js code is licensed under the same terms as listed on [the Processing.js repository](https://github.com/processing-js/processing-js/blob/master/CONTRIBUTING.md#what-happens-with-my-contributions-will-i-get-credit)
 
 The "Pamega" font is assumed free and was obtained via http://www.dafont.com/pamega-script.font - is this is your font and dafont violated your copyright, and you'd like me to remove this font: please let them know, and CC me on that email so that I know you take copyright seriously instead of only talking to me, not talking to the people responsible (it's crazy I have to say this, but there it is).
 
