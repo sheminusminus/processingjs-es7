@@ -9,11 +9,9 @@
 import PConstants from "./PConstants";
 import ArrayList from "./Processing Objects/ArrayList"
 import Char from "./Processing Objects/Char"
+import HashMap from "./Processing Objects/HashMap/HashMap"
+import PFont from "./Processing Objects/PFont/PFont"
 
-// This thing needs a lot of work...
-//import HashMap from "./Processing Objects/HashMap"
-
-// import PFont from "./Processing Objects/PFont"
 // import PMatrix2D from "./Processing Objects/PMatrix2D"
 // import PMatrix3D from "./Processing Objects/PMatrix3D"
 // import PShape from "./Processing Objects/PShape"
@@ -27,7 +25,8 @@ let defaultScopes = {
   ArrayList,
   Char,
   Character: Char,
-  //HashMap
+  HashMap,
+  PFont
 };
 
 // Due to the fact that PConstants is a massive list of values,

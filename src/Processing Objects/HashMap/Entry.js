@@ -1,27 +1,33 @@
-    function Entry(pair) {
-      this._isIn = function(map) {
-        return map === hashMap && (pair.removed === undefined);
-      };
+export default class Entry {
+  constructor(hashMap, pair) {
+    this.hashMap = hashMap;
+    this.pair = pair;
+  }
 
-      this.equals = function(o) {
-        return virtEquals(pair.key, o.getKey());
-      };
+  _isIn(map) {
+    return map === this.hashMap && (this.pair.removed === undefined);
+  }
 
-      this.getKey = function() {
-        return pair.key;
-      };
+  equals(o) {
+    return virtEquals(this.pair.key, o.getKey());
+  }
 
-      this.getValue = function() {
-        return pair.value;
-      };
+  getKey() {
+    return this.pair.key;
+  }
 
-      this.hashCode = function(o) {
-        return virtHashCode(pair.key);
-      };
+  getValue() {
+    return this.pair.value;
+  }
 
-      this.setValue = function(value) {
-        var old = pair.value;
-        pair.value = value;
-        return old;
-      };
-    }
+  hashCode(o) {
+    return virtHashCode(this.pair.key);
+  }
+
+  setValue(value) {
+    let pair = this.pair;
+    let old = pair.value;
+    pair.value = value;
+    return old;
+  }
+};

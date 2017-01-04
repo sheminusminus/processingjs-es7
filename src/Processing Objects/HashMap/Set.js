@@ -1,18 +1,27 @@
+import HashmapIterator from "./HashmapIterator";
+
 export default class Set {
 
-  constructor(conversion, isIn, removeItem) {
+  /**
+   * this takes three functions
+   * - conversion()
+   * - isIn()
+   * - removeItem()
+   */
+  constructor(hashMap, conversion, isIn, removeItem) {
+    this.hashMap = hashMap;
     this.conversion = conversion;
     this.isIn = isInt;
     this.removeItem = removeItem;
   }
 
   clear() {
-    hashMap.clear();
-  };
+    this.hashMap.clear();
+  }
 
   contains(o) {
-    return isIn(o);
-  };
+    return this.isIn(o);
+  }
 
   containsAll(o) {
     var it = o.iterator();
@@ -22,23 +31,23 @@ export default class Set {
       }
     }
     return true;
-  };
+  }
 
   isEmpty() {
-    return hashMap.isEmpty();
-  };
+    return this.hashMap.isEmpty();
+  }
 
   iterator() {
-    return new Iterator(conversion, removeItem);
-  };
+    return new HashmapIterator(this.hashMap.buckets, conversion, removeItem);
+  }
 
   remove(o) {
     if (this.contains(o)) {
-      removeItem(o);
+      this.removeItem(o);
       return true;
     }
     return false;
-  };
+  }
 
   removeAll(c) {
     var it = c.iterator();
@@ -46,12 +55,12 @@ export default class Set {
     while (it.hasNext()) {
       var item = it.next();
       if (this.contains(item)) {
-        removeItem(item);
+        this.removeItem(item);
         changed = true;
       }
     }
     return true;
-  };
+  }
 
   retainAll(c) {
     var it = this.iterator();
@@ -62,15 +71,13 @@ export default class Set {
         toRemove.push(entry);
       }
     }
-    for (var i = 0; i < toRemove.length; ++i) {
-      removeItem(toRemove[i]);
-    }
+    toRemove.forEach( e => this.removeItem(e));
     return toRemove.length > 0;
-  };
+  }
 
   size() {
-    return hashMap.size();
-  };
+    return this.hashMap.size();
+  }
 
   toArray() {
     var result = [];

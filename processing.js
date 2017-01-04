@@ -324,7 +324,7 @@ var PConstants$1 = { PConstants };
  *
  * @returns {boolean}           true if the objects are equal.
  */
-function virtEquals(obj, other) {
+function virtEquals$1(obj, other) {
   if (obj === null || other === null) {
     return (obj === null) && (other === null);
   }
@@ -348,6 +348,25 @@ function virtEquals(obj, other) {
  * @param {Object} obj          The object.
  * @returns {int}               The object's hash code.
  */
+function virtHashCode$1(obj, undef) {
+  if (typeof(obj) === "string") {
+    var hash = 0;
+    for (var i = 0; i < obj.length; ++i) {
+      hash = (hash * 31 + obj.charCodeAt(i)) & 0xFFFFFFFF;
+    }
+    return hash;
+  }
+  if (typeof(obj) !== "object") {
+    return obj & 0xFFFFFFFF;
+  }
+  if (obj.hashCode instanceof Function) {
+    return obj.hashCode();
+  }
+  if (obj.$id === undef) {
+      obj.$id = ((Math.floor(Math.random() * 0x10000) - 0x8000) << 16) | Math.floor(Math.random() * 0x10000);
+  }
+  return obj.$id;
+}
 
 class Iterator {
   constructor(array) {
@@ -435,7 +454,7 @@ class ArrayList extends JavaBaseClass {
   indexOf(item) {
     let array = this.array;
     for (let i = 0, len = array.length; i < len; ++i) {
-      if (virtEquals(item, array[i])) {
+      if (virtEquals$1(item, array[i])) {
         return i;
       }
     }
@@ -455,7 +474,7 @@ class ArrayList extends JavaBaseClass {
   lastIndexOf(item) {
     let array = this.array;
     for (let i = array.length-1; i >= 0; --i) {
-      if (virtEquals(item, array[i])) {
+      if (virtEquals$1(item, array[i])) {
         return i;
       }
     }
@@ -685,6 +704,794 @@ class Char {
   }
 }
 
+class HashmapIterator {
+  constructor(buckets, conversion, removeItem) {
+    this.buckets = buckets;
+    this.bucketIndex = 0;
+    this.itemIndex = -1;
+    this.endOfBuckets = false;
+    this.currentItem = undefined;
+    // and now start at "item one"
+    this.findNext();
+  }
+
+  findNext() {
+    while (!this.endOfBuckets) {
+      ++this.itemIndex;
+      if (this.bucketIndex >= buckets.length) {
+        this.endOfBuckets = true;
+      } else if (this.buckets[this.bucketIndex] === undefined || this.itemIndex >= this.buckets[this.bucketIndex].length) {
+        this.itemIndex = -1;
+        ++this.bucketIndex;
+      } else {
+        return;
+      }
+    }
+  }
+
+  /*
+  * @member Iterator
+  * Checks if the Iterator has more items
+  */
+  hasNext() {
+    return !this.endOfBuckets;
+  };
+
+  /*
+  * @member Iterator
+  * Return the next Item
+  */
+  next() {
+    this.currentItem = this.conversion(this.buckets[this.bucketIndex][this.itemIndex]);
+    this.findNext();
+    return currentItem;
+  };
+
+  /*
+  * @member Iterator
+  * Remove the current item
+  */
+  remove() {
+    if (this.currentItem !== undefined) {
+      this.removeItem(currentItem);
+      --this.itemIndex;
+      this.findNext();
+    }
+  };
+}
+
+class Set {
+
+  /**
+   * this takes three functions
+   * - conversion()
+   * - isIn()
+   * - removeItem()
+   */
+  constructor(hashMap, conversion, isIn, removeItem) {
+    this.hashMap = hashMap;
+    this.conversion = conversion;
+    this.isIn = isInt;
+    this.removeItem = removeItem;
+  }
+
+  clear() {
+    this.hashMap.clear();
+  }
+
+  contains(o) {
+    return this.isIn(o);
+  }
+
+  containsAll(o) {
+    var it = o.iterator();
+    while (it.hasNext()) {
+      if (!this.contains(it.next())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  isEmpty() {
+    return this.hashMap.isEmpty();
+  }
+
+  iterator() {
+    return new HashmapIterator(this.hashMap.buckets, conversion, removeItem);
+  }
+
+  remove(o) {
+    if (this.contains(o)) {
+      this.removeItem(o);
+      return true;
+    }
+    return false;
+  }
+
+  removeAll(c) {
+    var it = c.iterator();
+    var changed = false;
+    while (it.hasNext()) {
+      var item = it.next();
+      if (this.contains(item)) {
+        this.removeItem(item);
+        changed = true;
+      }
+    }
+    return true;
+  }
+
+  retainAll(c) {
+    var it = this.iterator();
+    var toRemove = [];
+    while (it.hasNext()) {
+      var entry = it.next();
+      if (!c.contains(entry)) {
+        toRemove.push(entry);
+      }
+    }
+    toRemove.forEach( e => this.removeItem(e));
+    return toRemove.length > 0;
+  }
+
+  size() {
+    return this.hashMap.size();
+  }
+
+  toArray() {
+    var result = [];
+    var it = this.iterator();
+    while (it.hasNext()) {
+      result.push(it.next());
+    }
+    return result;
+  };
+}
+
+class Entry {
+  constructor(hashMap, pair) {
+    this.hashMap = hashMap;
+    this.pair = pair;
+  }
+
+  _isIn(map) {
+    return map === this.hashMap && (this.pair.removed === undefined);
+  }
+
+  equals(o) {
+    return virtEquals(this.pair.key, o.getKey());
+  }
+
+  getKey() {
+    return this.pair.key;
+  }
+
+  getValue() {
+    return this.pair.value;
+  }
+
+  hashCode(o) {
+    return virtHashCode(this.pair.key);
+  }
+
+  setValue(value) {
+    let pair = this.pair;
+    let old = pair.value;
+    pair.value = value;
+    return old;
+  }
+}
+
+function getBucketIndex(buckets, key) {
+  let index = virtHashCode$1(key) % buckets.length;
+  return index < 0 ? buckets.length + index : index;
+}
+
+function ensureLoad(buckets, loadFactor, count) {
+  if (count <= loadFactor * buckets.length) {
+    return;
+  }
+  let allEntries = [];
+  buckets.forEach(bucket => {
+    if (bucket) {
+      allEntries = allEntries.concat(bucket);
+    }
+  });
+  let newBucketsLength = buckets.length * 2;
+  let newbuckets = [];
+  newbuckets.length = newBucketsLength;
+  allEntries.forEach(entry => {
+    let index = getBucketIndex(buckets, allEntries[j].key);
+    // FIXME: TODO: bit convoluted...?
+    let bucket = newbuckets[index];
+    if (bucket === undefined) {
+      newbuckets[index] = bucket = [];
+    }
+    bucket.push(allEntries[j]);
+  });
+  return buckets;
+}
+
+/**
+* A HashMap stores a collection of objects, each referenced by a key. This is similar to an Array, only
+* instead of accessing elements with a numeric index, a String  is used. (If you are familiar with
+* associative arrays from other languages, this is the same idea.)
+*
+* @param {int} initialCapacity          defines the initial capacity of the map, it's 16 by default
+* @param {float} loadFactor             the load factor for the map, the default is 0.75
+* @param {Map} m                        gives the new HashMap the same mappings as this Map
+*/
+class HashMap extends JavaBaseClass {
+
+  /**
+  * @member HashMap
+  * A HashMap stores a collection of objects, each referenced by a key. This is similar to an Array, only
+  * instead of accessing elements with a numeric index, a String  is used. (If you are familiar with
+  * associative arrays from other languages, this is the same idea.)
+  *
+  * @param {int} initialCapacity          defines the initial capacity of the map, it's 16 by default
+  * @param {float} loadFactor             the load factor for the map, the default is 0.75
+  * @param {Map} m                        gives the new HashMap the same mappings as this Map
+  */
+  constructor(other) {
+    super();
+    if (other instanceof HashMap) {
+      return arguments[0].clone();
+    }
+    this.initialCapacity = arguments.length > 0 ? arguments[0] : 16;
+    this.loadFactor = arguments.length > 1 ? arguments[1] : 0.75;
+    this.clear();
+  }
+
+
+  clear() {
+    this.count = 0;
+    this.buckets = [];
+    this.buckets.length = this.initialCapacity;
+  }
+
+  clone() {
+    let map = new HashMap();
+    map.putAll(this);
+    return map;
+  }
+
+  containsKey(key) {
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
+    if (bucket === undefined) {
+      return false;
+    }
+    for (let i = 0; i < bucket.length; ++i) {
+      if (virtEquals$1(bucket[i].key, key)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  containsValue(value) {
+    let buckets = this.buckets;
+    for (let i = 0; i < buckets.length; ++i) {
+      let bucket = buckets[i];
+      if (bucket === undefined) {
+        continue;
+      }
+      for (let j = 0; j < bucket.length; ++j) {
+        if (virtEquals$1(bucket[j].value, value)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  entrySet() {
+    let conversion = pair => new Entry(pair);
+    let isIn = pair => (pair instanceof Entry) && pair._isIn(this);
+    let removeItem = pair => this.remove(pair.getKey());
+    return new Set(this, conversion, isIn, removeItem);
+  }
+
+  get(key) {
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
+    if (bucket === undefined) {
+      return null;
+    }
+    for (let i = 0; i < bucket.length; ++i) {
+      if (virtEquals$1(bucket[i].key, key)) {
+        return bucket[i].value;
+      }
+    }
+    return null;
+  }
+
+  isEmpty() {
+    return this.count === 0;
+  }
+
+  keySet() {
+    let conversion = pair => pair.key;
+    let isIn = key => this.containsKey(key);
+    let removeItem = key => this.remove(key);
+    return new Set(this, conversion, isIn, removeItem);
+  }
+
+  values() {
+    let conversion = pair => pair.value;
+    let isIn = value => this.containsValue(value);
+    let removeItem = value => this.removeByValue(value);
+    return new Set(this, conversion, isIn, removeItem);
+  }
+
+  put(key, value) {
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
+    if (bucket === undefined) {
+      ++this.count;
+      buckets[index] = [{
+        key: key,
+        value: value
+      }];
+      ensureLoad(buckets, this.loadFactor, this.count);
+      return null;
+    }
+    for (let i = 0; i < bucket.length; ++i) {
+      if (virtEquals$1(bucket[i].key, key)) {
+        let previous = bucket[i].value;
+        bucket[i].value = value;
+        return previous;
+      }
+    }
+    ++this.count;
+    bucket.push({
+      key: key,
+      value: value
+    });
+    ensureLoad(buckets, this.loadFactor, this.count);
+    return null;
+  }
+
+  putAll(m) {
+    let it = m.entrySet().iterator();
+    while (it.hasNext()) {
+      let entry = it.next();
+      this.put(entry.getKey(), entry.getValue());
+    }
+  }
+
+  remove(key) {
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
+    if (bucket === undefined) {
+      return null;
+    }
+    for (let i = 0; i < bucket.length; ++i) {
+      if (virtEquals$1(bucket[i].key, key)) {
+        --this.count;
+        let previous = bucket[i].value;
+        bucket[i].removed = true;
+        if (bucket.length > 1) {
+          bucket.splice(i, 1);
+        } else {
+          buckets[index] = undefined;
+        }
+        return previous;
+      }
+    }
+    return null;
+  }
+
+  removeByValue(value) {
+    // FIXME: TODO: surely this can be done better now
+    let buckets = this.buckets, bucket, i, ilen, pair;
+    for (bucket in buckets) {
+      if (buckets.hasOwnProperty(bucket)) {
+        for (i = 0, ilen = buckets[bucket].length; i < ilen; i++) {
+          pair = buckets[bucket][i];
+          // removal on values is based on identity, not equality
+          if (pair.value === value) {
+            buckets[bucket].splice(i, 1);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  size() {
+    return this.count;
+  }
+
+  // toString override
+  toString() {
+    let buckets = this.buckets;
+    let rset = [];
+    buckets.forEach(bucket => {
+      bucket.forEach(pair => {
+        rset.push(pair.key + "=" + pair.value.toString());
+      });
+    });
+    return `{${ rset.join(',') }}`;
+  }
+}
+
+/**
+* [internal function] computeFontMetrics() calculates various metrics for text
+* placement. Currently this function computes the ascent, descent and leading
+* (from "lead", used for vertical space) values for the currently active font.
+*/
+function computeFontMetrics(pfont) {
+  var emQuad = 250,
+      correctionFactor = pfont.size / emQuad,
+      canvas = document.createElement("canvas");
+  canvas.width = 2*emQuad;
+  canvas.height = 2*emQuad;
+  canvas.style.opacity = 0;
+  var cfmFont = pfont.getCSSDefinition(emQuad+"px", "normal"),
+      ctx = canvas.getContext("2d");
+  ctx.font = cfmFont;
+
+  // Size the canvas using a string with common max-ascent and max-descent letters.
+  // Changing the canvas dimensions resets the context, so we must reset the font.
+  var protrusions = "dbflkhyjqpg";
+  canvas.width = ctx.measureText(protrusions).width;
+  ctx.font = cfmFont;
+
+  // for text lead values, we meaure a multiline text container.
+  var leadDiv = document.createElement("div");
+  leadDiv.style.position = "absolute";
+  leadDiv.style.opacity = 0;
+  leadDiv.style.fontFamily = '"' + pfont.name + '"';
+  leadDiv.style.fontSize = emQuad + "px";
+  leadDiv.innerHTML = protrusions + "<br/>" + protrusions;
+  document.body.appendChild(leadDiv);
+
+  var w = canvas.width,
+      h = canvas.height,
+      baseline = h/2;
+
+  // Set all canvas pixeldata values to 255, with all the content
+  // data being 0. This lets us scan for data[i] != 255.
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "black";
+  ctx.fillText(protrusions, 0, baseline);
+  var pixelData = ctx.getImageData(0, 0, w, h).data;
+
+  // canvas pixel data is w*4 by h*4, because R, G, B and A are separate,
+  // consecutive values in the array, rather than stored as 32 bit ints.
+  var i = 0,
+      w4 = w * 4,
+      len = pixelData.length;
+
+  // Finding the ascent uses a normal, forward scanline
+  while (++i < len && pixelData[i] === 255) {
+    noop();
+  }
+  var ascent = Math.round(i / w4);
+
+  // Finding the descent uses a reverse scanline
+  i = len - 1;
+  while (--i > 0 && pixelData[i] === 255) {
+    noop();
+  }
+  var descent = Math.round(i / w4);
+
+  // set font metrics
+  pfont.ascent = correctionFactor * (baseline - ascent);
+  pfont.descent = correctionFactor * (descent - baseline);
+
+  // Then we try to get the real value from the browser
+  if (document.defaultView.getComputedStyle) {
+    var leadDivHeight = document.defaultView.getComputedStyle(leadDiv,null).getPropertyValue("height");
+    leadDivHeight = correctionFactor * leadDivHeight.replace("px","");
+    if (leadDivHeight >= pfont.size * 2) {
+      pfont.leading = Math.round(leadDivHeight/2);
+    }
+  }
+  document.body.removeChild(leadDiv);
+
+  // if we're caching, cache the context used for this pfont
+  if (pfont.caching) {
+    return ctx;
+  }
+}
+
+const preloading = {
+  // template element used to compare font sizes
+  template: {},
+  // indicates whether or not the reference tiny font has been loaded
+  initialized: false,
+  // load the reference tiny font via a css @font-face rule
+  initialize: function() {
+    let generateTinyFont = function() {
+      let encoded = "#E3KAI2wAgT1MvMg7Eo3VmNtYX7ABi3CxnbHlm" +
+                    "7Abw3kaGVhZ7ACs3OGhoZWE7A53CRobXR47AY3" +
+                    "AGbG9jYQ7G03Bm1heH7ABC3CBuYW1l7Ae3AgcG" +
+                    "9zd7AI3AE#B3AQ2kgTY18PPPUACwAg3ALSRoo3" +
+                    "#yld0xg32QAB77#E777773B#E3C#I#Q77773E#" +
+                    "Q7777777772CMAIw7AB77732B#M#Q3wAB#g3B#" +
+                    "E#E2BB//82BB////w#B7#gAEg3E77x2B32B#E#" +
+                    "Q#MTcBAQ32gAe#M#QQJ#E32M#QQJ#I#g32Q77#";
+      let expand = function(input) {
+                     return "AAAAAAAA".substr(~~input ? 7-input : 6);
+                   };
+      return encoded.replace(/[#237]/g, expand);
+    };
+    let fontface = document.createElement("style");
+    fontface.setAttribute("type","text/css");
+    fontface.innerHTML =  "@font-face {\n" +
+                          '  font-family: "PjsEmptyFont";' + "\n" +
+                          "  src: url('data:application/x-font-ttf;base64,"+generateTinyFont()+"')\n" +
+                          "       format('truetype');\n" +
+                          "}";
+    document.head.appendChild(fontface);
+
+    // set up the template element
+    let element = document.createElement("span");
+    element.style.cssText = 'position: absolute; top: -1000; left: 0; opacity: 0; font-family: "PjsEmptyFont", fantasy;';
+    element.innerHTML = "AAAAAAAA";
+    document.body.appendChild(element);
+    this.template = element;
+
+    this.initialized = true;
+  },
+  // Shorthand function to get the computed width for an element.
+  getElementWidth: function(element) {
+    return document.defaultView.getComputedStyle(element,"").getPropertyValue("width");
+  },
+  // time taken so far in attempting to load a font
+  timeAttempted: 0,
+  // returns false if no fonts are pending load, or true otherwise.
+  pending: function(intervallength) {
+    if (!this.initialized) {
+      this.initialize();
+    }
+    let element,
+        computedWidthFont,
+        computedWidthRef = this.getElementWidth(this.template);
+    for (let i = 0; i < this.fontList.length; i++) {
+      // compares size of text in pixels. if equal, custom font is not yet loaded
+      element = this.fontList[i];
+      computedWidthFont = this.getElementWidth(element);
+      if (this.timeAttempted < 4000 && computedWidthFont === computedWidthRef) {
+        this.timeAttempted += intervallength;
+        return true;
+      } else {
+        document.body.removeChild(element);
+        this.fontList.splice(i--, 1);
+        this.timeAttempted = 0;
+      }
+    }
+    // if there are no more fonts to load, pending is false
+    if (this.fontList.length === 0) {
+      return false;
+    }
+    // We should have already returned before getting here.
+    // But, if we do get here, length!=0 so fonts are pending.
+    return true;
+  },
+  // fontList contains elements to compare font sizes against a template
+  fontList: [],
+  // addedList contains the fontnames of all the fonts loaded via @font-face
+  addedList: {},
+  // adds a font to the font cache
+  // creates an element using the font, to start loading the font,
+  // and compare against a default font to see if the custom font is loaded
+  add: function(fontSrc) {
+    if (!this.initialized) {
+     this.initialize();
+    }
+    // fontSrc can be a string or a javascript object
+    // acceptable fonts are .ttf, .otf, and data uri
+    let fontName = (typeof fontSrc === 'object' ? fontSrc.fontFace : fontSrc),
+        fontUrl = (typeof fontSrc === 'object' ? fontSrc.url : fontSrc);
+
+    // check whether we already created the @font-face rule for this font
+    if (this.addedList[fontName]) {
+      return;
+    }
+
+    // if we didn't, create the @font-face rule
+    let style = document.createElement("style");
+    style.setAttribute("type","text/css");
+    style.innerHTML = "@font-face{\n  font-family: '" + fontName + "';\n  src:  url('" + fontUrl + "');\n}\n";
+    document.head.appendChild(style);
+    this.addedList[fontName] = true;
+
+    // also create the element to load and compare the new font
+    let element = document.createElement("span");
+    element.style.cssText = "position: absolute; top: 0; left: 0; opacity: 0;";
+    element.style.fontFamily = '"' + fontName + '", "PjsEmptyFont", fantasy';
+    element.innerHTML = "AAAAAAAA";
+    document.body.appendChild(element);
+    this.fontList.push(element);
+  }
+};
+
+/**
+ * Constructor for a system or from-file (non-SVG) font.
+ */
+class PFont$1 {
+  constructor(name, size) {
+    if (name === undef) {
+      name = "";
+    }
+    this.name = name;
+    if (size === undef) {
+      size = 0;
+    }
+    this.size = size;
+    this.glyph = false;
+    this.ascent = 0;
+    this.descent = 0;
+    // For leading, the "safe" value uses the standard TEX ratio of 1.2 em
+    this.leading = 1.2 * size;
+
+    // Note that an italic, bold font must used "... Bold Italic"
+    // in P5. "... Italic Bold" is treated as normal/normal.
+    let illegalIndicator = name.indexOf(" Italic Bold");
+    if (illegalIndicator !== -1) {
+      name = name.substring(0, illegalIndicator);
+    }
+
+    // determine font style
+    this.style = "normal";
+    let italicsIndicator = name.indexOf(" Italic");
+    if (italicsIndicator !== -1) {
+      name = name.substring(0, italicsIndicator);
+      this.style = "italic";
+    }
+
+    // determine font weight
+    this.weight = "normal";
+    let boldIndicator = name.indexOf(" Bold");
+    if (boldIndicator !== -1) {
+      name = name.substring(0, boldIndicator);
+      this.weight = "bold";
+    }
+
+    // determine font-family name
+    this.family = "sans-serif";
+    if (name !== undef) {
+      switch(name) {
+        case "sans-serif":
+        case "serif":
+        case "monospace":
+        case "fantasy":
+        case "cursive":
+          this.family = name;
+          break;
+        default:
+          this.family = '"' + name + '", sans-serif';
+          break;
+      }
+    }
+    // Calculate the ascent/descent/leading value based on how the browser renders this font.
+    this.context2d = computeFontMetrics(this);
+    this.css = this.getCSSDefinition();
+    if (this.context2d) {
+      this.context2d.font = this.css;
+    }
+  }
+
+  /**
+   * This function generates the CSS "font" string for this PFont
+   */
+  getCSSDefinition(fontSize, lineHeight) {
+    if(fontSize===undef) {
+      fontSize = this.size + "px";
+    }
+    if(lineHeight===undef) {
+      lineHeight = this.leading + "px";
+    }
+    // CSS "font" definition: font-style font-variant font-weight font-size/line-height font-family
+    let components = [this.style, "normal", this.weight, fontSize + "/" + lineHeight, this.family];
+    return components.join(" ");
+  }
+
+  /**
+   * Rely on the cached context2d measureText function.
+   */
+  measureTextWidth(string) {
+    return this.context2d.measureText(string).width;
+  }
+
+  /**
+   * FALLBACK FUNCTION -- replaces Pfont.prototype.measureTextWidth
+   * when the font cache becomes too large. This contructs a new
+   * canvas 2d context object for calling measureText on.
+   */
+  measureTextWidthFallback(string) {
+    let canvas = document.createElement("canvas"),
+        ctx = canvas.getContext("2d");
+    ctx.font = this.css;
+    return ctx.measureText(string).width;
+  }
+}
+
+
+/**
+ * Global "loaded fonts" list, internal to PFont
+ */
+PFont$1.PFontCache = { length: 0 };
+
+/**
+ * This function acts as single access point for getting and caching
+ * fonts across all sketches handled by an instance of Processing.js
+ */
+PFont$1.get = function(fontName, fontSize) {
+  // round fontSize to one decimal point
+  fontSize = ((fontSize*10)+0.5|0)/10;
+  let cache = PFont$1.PFontCache,
+      idx = fontName+"/"+fontSize;
+  if (!cache[idx]) {
+    cache[idx] = new PFont$1(fontName, fontSize);
+    cache.length++;
+
+    // FALLBACK FUNCTIONALITY 1:
+    // If the cache has become large, switch over from full caching
+    // to caching only the static metrics for each new font request.
+    if (cache.length === 50) {
+      PFont$1.prototype.measureTextWidth = PFont$1.prototype.measureTextWidthFallback;
+      PFont$1.prototype.caching = false;
+      // clear contexts stored for each cached font
+      let entry;
+      for (entry in cache) {
+        if (entry !== "length") {
+          cache[entry].context2d = null;
+        }
+      }
+      return new PFont$1(fontName, fontSize);
+    }
+
+    // FALLBACK FUNCTIONALITY 2:
+    // If the cache has become too large, switch off font caching entirely.
+    if (cache.length === 400) {
+      PFont$1.PFontCache = {};
+      PFont$1.get = PFont$1.getFallback;
+      return new PFont$1(fontName, fontSize);
+    }
+  }
+  return cache[idx];
+};
+
+/**
+ * regulates whether or not we're caching the canvas
+ * 2d context for quick text width computation.
+ */
+PFont$1.caching = true;
+
+/**
+ * FALLBACK FUNCTION -- replaces PFont.get when the font cache
+ * becomes too large. This function bypasses font caching entirely.
+ */
+PFont$1.getFallback = function(fontName, fontSize) {
+  return new PFont$1(fontName, fontSize);
+};
+
+/**
+ * Lists all standard fonts. Due to browser limitations, this list is
+ * not the system font list, like in P5, but the CSS "genre" list.
+ */
+PFont$1.list = function() {
+  return ["sans-serif", "serif", "monospace", "fantasy", "cursive"];
+};
+
+/**
+ * Loading external fonts through @font-face rules is handled by PFont,
+ * to ensure fonts loaded in this way are globally available.
+ */
+PFont$1.preloading = preloading;
+
 /**
  * The "default scope" is effectively the Processing API, which is then
  * extended with a user's own sketch code.
@@ -693,10 +1500,6 @@ class Char {
  * the changes in defaultScope [FIXME: TODO: what did we mean by this?]
  */
 
-// This thing needs a lot of work...
-//import HashMap from "./Processing Objects/HashMap"
-
-// import PFont from "./Processing Objects/PFont"
 // import PMatrix2D from "./Processing Objects/PMatrix2D"
 // import PMatrix3D from "./Processing Objects/PMatrix3D"
 // import PShape from "./Processing Objects/PShape"
@@ -710,7 +1513,8 @@ let defaultScopes = {
   ArrayList,
   Char,
   Character: Char,
-  //HashMap
+  HashMap,
+  PFont: PFont$1
 };
 
 // Due to the fact that PConstants is a massive list of values,

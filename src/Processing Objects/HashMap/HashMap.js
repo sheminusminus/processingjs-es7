@@ -1,37 +1,38 @@
-import virtEquals from "./utils/virtEquals";
-import virtHashCode from "./utils/virtHashCode";
+import virtEquals from "../utils/virtEquals";
+import virtHashCode from "../utils/virtHashCode";
 
 import Set from "./Set";
 import Entry from "./Entry";
-import Iterator from "./Iterator";
-import JavaBaseClass from "../JavaBaseClass";
+import JavaBaseClass from "../../JavaBaseClass";
 
-function getBucketIndex(key) {
-  var index = virtHashCode(key) % buckets.length;
+function getBucketIndex(buckets, key) {
+  let index = virtHashCode(key) % buckets.length;
   return index < 0 ? buckets.length + index : index;
 }
 
-function ensureLoad() {
+function ensureLoad(buckets, loadFactor, count) {
   if (count <= loadFactor * buckets.length) {
     return;
   }
-  var allEntries = [];
-  for (var i = 0; i < buckets.length; ++i) {
-    if (buckets[i] !== undefined) {
-      allEntries = allEntries.concat(buckets[i]);
+  let allEntries = [];
+  buckets.forEach(bucket => {
+    if (bucket) {
+      allEntries = allEntries.concat(bucket);
     }
-  }
-  var newBucketsLength = buckets.length * 2;
-  buckets = [];
-  buckets.length = newBucketsLength;
-  for (var j = 0; j < allEntries.length; ++j) {
-    var index = getBucketIndex(allEntries[j].key);
-    var bucket = buckets[index];
+  });
+  let newBucketsLength = buckets.length * 2;
+  let newbuckets = [];
+  newbuckets.length = newBucketsLength;
+  allEntries.forEach(entry => {
+    let index = getBucketIndex(buckets, allEntries[j].key);
+    // FIXME: TODO: bit convoluted...?
+    let bucket = newbuckets[index];
     if (bucket === undefined) {
-      buckets[index] = bucket = [];
+      newbuckets[index] = bucket = [];
     }
     bucket.push(allEntries[j]);
-  }
+  })
+  return buckets;
 }
 
 /**
@@ -56,38 +57,36 @@ export default class HashMap extends JavaBaseClass {
   * @param {Map} m                        gives the new HashMap the same mappings as this Map
   */
   constructor(other) {
+    super();
     if (other instanceof HashMap) {
       return arguments[0].clone();
     }
-
-    var initialCapacity = arguments.length > 0 ? arguments[0] : 16;
-    var loadFactor = arguments.length > 1 ? arguments[1] : 0.75;
-    var buckets = [];
-    buckets.length = initialCapacity;
-    var count = 0;
-    var hashMap = this;
+    this.initialCapacity = arguments.length > 0 ? arguments[0] : 16;
+    this.loadFactor = arguments.length > 1 ? arguments[1] : 0.75;
+    this.clear();
   }
 
 
   clear() {
-    count = 0;
-    buckets = [];
-    buckets.length = initialCapacity;
+    this.count = 0;
+    this.buckets = [];
+    this.buckets.length = this.initialCapacity;
   }
 
   clone() {
-    var map = new HashMap();
+    let map = new HashMap();
     map.putAll(this);
     return map;
   }
 
   containsKey(key) {
-    var index = getBucketIndex(key);
-    var bucket = buckets[index];
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
     if (bucket === undefined) {
       return false;
     }
-    for (var i = 0; i < bucket.length; ++i) {
+    for (let i = 0; i < bucket.length; ++i) {
       if (virtEquals(bucket[i].key, key)) {
         return true;
       }
@@ -96,12 +95,13 @@ export default class HashMap extends JavaBaseClass {
   }
 
   containsValue(value) {
-    for (var i = 0; i < buckets.length; ++i) {
-      var bucket = buckets[i];
+    let buckets = this.buckets;
+    for (let i = 0; i < buckets.length; ++i) {
+      let bucket = buckets[i];
       if (bucket === undefined) {
         continue;
       }
-      for (var j = 0; j < bucket.length; ++j) {
+      for (let j = 0; j < bucket.length; ++j) {
         if (virtEquals(bucket[j].value, value)) {
           return true;
         }
@@ -111,28 +111,20 @@ export default class HashMap extends JavaBaseClass {
   }
 
   entrySet() {
-    return new Set(
-      function conversion(pair) {
-        return new Entry(pair);
-      },
-
-      function isIn(pair) {
-        return (pair instanceof Entry) && pair._isIn(hashMap);
-      },
-
-      function removeItem(pair) {
-        return hashMap.remove(pair.getKey());
-      }
-    );
+    let conversion = pair => new Entry(pair);
+    let isIn = pair => (pair instanceof Entry) && pair._isIn(this);
+    let removeItem = pair => this.remove(pair.getKey());
+    return new Set(this, conversion, isIn, removeItem);
   }
 
   get(key) {
-    var index = getBucketIndex(key);
-    var bucket = buckets[index];
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
     if (bucket === undefined) {
       return null;
     }
-    for (var i = 0; i < bucket.length; ++i) {
+    for (let i = 0; i < bucket.length; ++i) {
       if (virtEquals(bucket[i].key, key)) {
         return bucket[i].value;
       }
@@ -141,89 +133,71 @@ export default class HashMap extends JavaBaseClass {
   }
 
   isEmpty() {
-    return count === 0;
+    return this.count === 0;
   }
 
   keySet() {
-    return new Set(
-      // get key from pair
-      function(pair) {
-        return pair.key;
-      },
-      // is-in test
-      function(key) {
-        return hashMap.containsKey(key);
-      },
-      // remove from hashmap by key
-      function(key) {
-        return hashMap.remove(key);
-      }
-    );
+    let conversion = pair => pair.key;
+    let isIn = key => this.containsKey(key);
+    let removeItem = key => this.remove(key);
+    return new Set(this, conversion, isIn, removeItem);
   }
 
   values() {
-    return new Set(
-      // get value from pair
-      function(pair) {
-        return pair.value;
-      },
-      // is-in test
-      function(value) {
-        return hashMap.containsValue(value);
-      },
-      // remove from hashmap by value
-      function(value) {
-        return hashMap.removeByValue(value);
-      }
-    );
+    let conversion = pair => pair.value;
+    let isIn = value => this.containsValue(value);
+    let removeItem = value => this.removeByValue(value);
+    return new Set(this, conversion, isIn, removeItem);
   }
 
   put(key, value) {
-    var index = getBucketIndex(key);
-    var bucket = buckets[index];
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
     if (bucket === undefined) {
-      ++count;
+      ++this.count;
       buckets[index] = [{
         key: key,
         value: value
       }];
-      ensureLoad();
+      ensureLoad(buckets, this.loadFactor, this.count);
       return null;
     }
-    for (var i = 0; i < bucket.length; ++i) {
+    for (let i = 0; i < bucket.length; ++i) {
       if (virtEquals(bucket[i].key, key)) {
-        var previous = bucket[i].value;
+        let previous = bucket[i].value;
         bucket[i].value = value;
         return previous;
       }
     }
-    ++count;
+    ++this.count;
     bucket.push({
       key: key,
       value: value
     });
-    ensureLoad();
+    ensureLoad(buckets, this.loadFactor, this.count);
     return null;
   }
 
   putAll(m) {
-    var it = m.entrySet().iterator();
+    let it = m.entrySet().iterator();
     while (it.hasNext()) {
-      var entry = it.next();
+      let entry = it.next();
       this.put(entry.getKey(), entry.getValue());
     }
   }
 
   remove(key) {
-    var index = getBucketIndex(key);
-    var bucket = buckets[index];
+    let buckets = this.buckets;
+    let index = getBucketIndex(buckets, key);
+    let bucket = buckets[index];
     if (bucket === undefined) {
       return null;
     }
-    for (var i = 0; i < bucket.length; ++i) {
+    for (let i = 0; i < bucket.length; ++i) {
       if (virtEquals(bucket[i].key, key)) {
-        --count;
-        var previous = bucket[i].value;
+        --this.count;
+        let previous = bucket[i].value;
         bucket[i].removed = true;
         if (bucket.length > 1) {
           bucket.splice(i, 1);
@@ -237,7 +211,8 @@ export default class HashMap extends JavaBaseClass {
   }
 
   removeByValue(value) {
-    var bucket, i, ilen, pair;
+    // FIXME: TODO: surely this can be done better now
+    let buckets = this.buckets, bucket, i, ilen, pair;
     for (bucket in buckets) {
       if (buckets.hasOwnProperty(bucket)) {
         for (i = 0, ilen = buckets[bucket].length; i < ilen; i++) {
@@ -254,6 +229,18 @@ export default class HashMap extends JavaBaseClass {
   }
 
   size() {
-    return count;
+    return this.count;
+  }
+
+  // toString override
+  toString() {
+    let buckets = this.buckets;
+    let rset = [];
+    buckets.forEach(bucket => {
+      bucket.forEach(pair => {
+        rset.push(pair.key + "=" + pair.value.toString());
+      })
+    })
+    return `{${ rset.join(',') }}`;
   }
 };
