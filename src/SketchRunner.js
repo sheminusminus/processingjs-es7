@@ -1,10 +1,16 @@
 import noop from "./Parser/noop";
+import playBindings from "./playBindings";
 
 let emptyhooks = {
   preSetup: noop,
   postSetup: noop,
   preDraw: noop,
-  postDraw: noop
+  postDraw: noop,
+
+  onFrameStart: noop,
+  onFrameEnd: noop,
+  onLoop: noop,
+  onPause: noop
 };
 
 export default class SketchRunner {
@@ -13,6 +19,16 @@ export default class SketchRunner {
   	this.target = data.target;
   	this.hooks = Object.assign({}, emptyhooks, data.hooks);
   	this.cache = {};
+
+    // FIXME: TODO: this provisions a canvas for testing purposes. REMOVE LATER
+    if (!this.target) {
+      let canvas = document.createElement("canvas");
+      canvas.width = 100;
+      canvas.height = 100;
+      this.target = canvas;
+    }
+    this.curElement = this.target.getContext("2d");
+    playBindings(this.sketch, this.curElement, this.hooks);
   }
 
   /**
@@ -28,10 +44,13 @@ export default class SketchRunner {
     // draw
     if (this.sketch.draw) {
 	    this.__pre_draw();
+      this.hooks.onFrameStart();
 	    this.sketch.draw();
+      this.hooks.onFrameEnd();
 	    this.__post_draw();
 	    // and then we either animate or we don't, depending on sketch.noLoop
-	}
+      this.sketch.__initial_startup();
+	  }
   }
 
   //  hook opportunity

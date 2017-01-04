@@ -90,18 +90,21 @@ var Processing = {
    * Generate a default scope for a sketch
    */
   generateDefaultScope(options) {
+    // this sorts out all the object and function bindings for a sketch
     return generateDefaultScope(options);
   },
 
   /**
-   * ...
+   * called when a sketch's source script has been loaded by the browser
    */
   onSketchLoad(sketch) {
+    // crosslink the sketch
     let id = sketch.id;
     let data = staticSketchList[id];
     data.sketch = sketch;
+    // and execute the sketch, with its own call stack.
     let runner = new SketchRunner(data);
-    runner.run();
+    setTimeout(() => runner.run(), 1);
   },
 
   /**
@@ -130,7 +133,5 @@ var Processing = {
     });
   }
 };
-
-//Processing.Sketch = Sketch;
 
 export default Processing;

@@ -40,8 +40,6 @@ DefaultScope.prototype = PConstants;
 
 
 
-
-
 // =====================================================================
 //
 //    THIS IS STILL AN OLD FILE FROM THE ORIGINAL NODE-PROCESSING-JS

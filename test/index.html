@@ -17,11 +17,15 @@
     </script>
 
     <script type="text/processing" id="source">
-	    float f = sin(HALF_PI + 0.1);
-
       void setup() {
-        String s = "" + f;
-        console.log('s:', s, ', s.contains("e"):', s.contains("e"));
+        frameRate(10);
+      }
+
+      void draw() {
+        console.log(frameCount);
+        if (frameCount >= 10) {
+          noLoop();
+        }
       }
     </script>
 
@@ -35,10 +39,17 @@
       let target = document.getElementById('target');
 
       let hooks = {
-        preSetup: (...e) => console.log(`presetup ${e}`),
-        postSetup: (...e) => console.log(`postsetup ${e}`),
-        preDraw: (...e) => console.log(`predraw ${e}`),
-        postDraw: (...e) => console.log(`postdraw ${e}`)
+        // setup hooks
+        preSetup: (...e) => console.log(`preSetup ${e}`),
+        postSetup: (...e) => console.log(`postSetup ${e}`),
+        // draw hooks
+        preDraw: (...e) => console.log(`preDraw ${e}`),
+        postDraw: (...e) => console.log(`postDraw ${e}`),
+        // play hooks
+        onFrameStart: (...e) => console.log(`onFrameStart ${e}`),
+        onFrameEnd: (...e) => console.log(`onFrameEnd ${e}`),
+        onLoop: (...e) => console.log(`onLoop ${e}`),
+        onPause: (...e) => console.log(`onPause ${e}`)
       };
 
     	Processing.parse(code)
