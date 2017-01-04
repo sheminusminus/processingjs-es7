@@ -1208,8 +1208,10 @@ function computeFontMetrics(pfont) {
 const preloading = {
   // template element used to compare font sizes
   template: {},
+
   // indicates whether or not the reference tiny font has been loaded
   initialized: false,
+
   // load the reference tiny font via a css @font-face rule
   initialize: function() {
     let generateTinyFont = function() {
@@ -1244,12 +1246,15 @@ const preloading = {
 
     this.initialized = true;
   },
+
   // Shorthand function to get the computed width for an element.
   getElementWidth: function(element) {
     return document.defaultView.getComputedStyle(element,"").getPropertyValue("width");
   },
+
   // time taken so far in attempting to load a font
   timeAttempted: 0,
+
   // returns false if no fonts are pending load, or true otherwise.
   pending: function(intervallength) {
     if (!this.initialized) {
@@ -1279,14 +1284,19 @@ const preloading = {
     // But, if we do get here, length!=0 so fonts are pending.
     return true;
   },
+
   // fontList contains elements to compare font sizes against a template
   fontList: [],
+
   // addedList contains the fontnames of all the fonts loaded via @font-face
   addedList: {},
+
   // adds a font to the font cache
   // creates an element using the font, to start loading the font,
   // and compare against a default font to see if the custom font is loaded
   add: function(fontSrc) {
+    console.log("XYZ");
+
     if (!this.initialized) {
      this.initialize();
     }
@@ -1320,7 +1330,7 @@ const preloading = {
 /**
  * Constructor for a system or from-file (non-SVG) font.
  */
-class PFont$1 {
+class PFont {
   constructor(name, size) {
     if (name === undef) {
       name = "";
@@ -1422,27 +1432,27 @@ class PFont$1 {
 /**
  * Global "loaded fonts" list, internal to PFont
  */
-PFont$1.PFontCache = { length: 0 };
+PFont.PFontCache = { length: 0 };
 
 /**
  * This function acts as single access point for getting and caching
  * fonts across all sketches handled by an instance of Processing.js
  */
-PFont$1.get = function(fontName, fontSize) {
+PFont.get = function(fontName, fontSize) {
   // round fontSize to one decimal point
   fontSize = ((fontSize*10)+0.5|0)/10;
-  let cache = PFont$1.PFontCache,
+  let cache = PFont.PFontCache,
       idx = fontName+"/"+fontSize;
   if (!cache[idx]) {
-    cache[idx] = new PFont$1(fontName, fontSize);
+    cache[idx] = new PFont(fontName, fontSize);
     cache.length++;
 
     // FALLBACK FUNCTIONALITY 1:
     // If the cache has become large, switch over from full caching
     // to caching only the static metrics for each new font request.
     if (cache.length === 50) {
-      PFont$1.prototype.measureTextWidth = PFont$1.prototype.measureTextWidthFallback;
-      PFont$1.prototype.caching = false;
+      PFont.prototype.measureTextWidth = PFont.prototype.measureTextWidthFallback;
+      PFont.prototype.caching = false;
       // clear contexts stored for each cached font
       let entry;
       for (entry in cache) {
@@ -1450,15 +1460,15 @@ PFont$1.get = function(fontName, fontSize) {
           cache[entry].context2d = null;
         }
       }
-      return new PFont$1(fontName, fontSize);
+      return new PFont(fontName, fontSize);
     }
 
     // FALLBACK FUNCTIONALITY 2:
     // If the cache has become too large, switch off font caching entirely.
     if (cache.length === 400) {
-      PFont$1.PFontCache = {};
-      PFont$1.get = PFont$1.getFallback;
-      return new PFont$1(fontName, fontSize);
+      PFont.PFontCache = {};
+      PFont.get = PFont.getFallback;
+      return new PFont(fontName, fontSize);
     }
   }
   return cache[idx];
@@ -1468,21 +1478,21 @@ PFont$1.get = function(fontName, fontSize) {
  * regulates whether or not we're caching the canvas
  * 2d context for quick text width computation.
  */
-PFont$1.caching = true;
+PFont.caching = true;
 
 /**
  * FALLBACK FUNCTION -- replaces PFont.get when the font cache
  * becomes too large. This function bypasses font caching entirely.
  */
-PFont$1.getFallback = function(fontName, fontSize) {
-  return new PFont$1(fontName, fontSize);
+PFont.getFallback = function(fontName, fontSize) {
+  return new PFont(fontName, fontSize);
 };
 
 /**
  * Lists all standard fonts. Due to browser limitations, this list is
  * not the system font list, like in P5, but the CSS "genre" list.
  */
-PFont$1.list = function() {
+PFont.list = function() {
   return ["sans-serif", "serif", "monospace", "fantasy", "cursive"];
 };
 
@@ -1490,7 +1500,7 @@ PFont$1.list = function() {
  * Loading external fonts through @font-face rules is handled by PFont,
  * to ensure fonts loaded in this way are globally available.
  */
-PFont$1.preloading = preloading;
+PFont.preloading = preloading;
 
 /**
  * The "default scope" is effectively the Processing API, which is then
@@ -1514,7 +1524,7 @@ let defaultScopes = {
   Char,
   Character: Char,
   HashMap,
-  PFont: PFont$1
+  PFont
 };
 
 // Due to the fact that PConstants is a massive list of values,
@@ -4045,6 +4055,76 @@ function transformMain(code, scope) {
 }
 
 // L/RTrim, also removing any surrounding double quotes (e.g., just take string contents).
+function clean(s) {
+  return s.replace(/^\s*["']?/, '').replace(/["']?\s*$/, '');
+}
+
+/**
+ * collect all @PJS pre-directives
+ */
+function processPreDirectives(aCode, sketch) {
+  // Parse out @pjs directive, if any.
+  let dm = new RegExp(/\/\*\s*@pjs\s+((?:[^\*]|\*+[^\*\/])*)\*\//g).exec(aCode);
+  if (!dm || dm.length !== 2) {
+    return aCode;
+  }
+
+  // masks contents of a JSON to be replaced later
+  // to protect the contents from further parsing
+  let jsonItems = [],
+      directives = dm.splice(1, 2)[0].replace(/\{([\s\S]*?)\}/g, (function() {
+        return function(all, item) {
+          jsonItems.push(item);
+          return "{" + (jsonItems.length-1) + "}";
+        };
+      }())).replace('\n', '').replace('\r', '').split(";");
+  directives.forEach(pair => {
+    pair = pair.split('=');
+    if (pair && pair.length === 2) {
+      let key = clean(pair[0]),
+          value = clean(pair[1]),
+          list = [];
+
+      // A few directives require work beyond storying key/value pairings
+      if (key === "preload") {
+        list = value.split(',');
+        // All pre-loaded images will get put in imageCache, keyed on filename
+        for (let j = 0, jl = list.length; j < jl; j++) {
+          let imageName = clean(list[j]);
+          sketch.imageCache.add(imageName);
+        }
+        // fonts can be declared as a string containing a url,
+        // or a JSON object, containing a font name, and a url
+      }
+
+      else if (key === "font") {
+        list = value.split(",");
+        list.forEach(item => {
+          let fontName = clean(item),
+              index = /^\{(\d*?)\}$/.exec(fontName);
+          // if index is not null, send JSON, otherwise, send string
+          PFont.preloading.add(index ? JSON.parse("{" + jsonItems[index[1]] + "}") : fontName);
+        });
+      }
+
+      else if (key === "pauseOnBlur") {
+        sketch.options.pauseOnBlur = value === "true";
+      }
+
+      else if (key === "globalKeyEvents") {
+        sketch.options.globalKeyEvents = value === "true";
+      }
+
+      else if (key.substring(0, 6) === "param-") {
+        sketch.params[key.substring(6)] = value;
+      }
+
+      else { sketch.options[key] = value; }
+    }
+  });
+
+  return aCode;
+}
 
 // replaces strings and regexs keyed by index with an array of strings
 function injectStrings(code, strings) {
@@ -4089,7 +4169,8 @@ var Processing = {
    * run the conversion from source to AST
    */
   async parse(sourceCode) {
-    return transformMain(sourceCode);
+    let cleaned = processPreDirectives(sourceCode);
+    return transformMain(cleaned);
   },
 
   /**

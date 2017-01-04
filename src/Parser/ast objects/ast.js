@@ -14,9 +14,9 @@ import contextMappedString from "../context-mapped-string.js";
 import globalMembers from "../get-global-members";
 import PConstants from "../pconstants";
 
-import generateDefaultScope from "../../src/DefaultScope";
+import generateDefaultScope from "../../DefaultScope";
 
-import { version } from '../../package.json';
+import { version } from '../../../package.json';
 
 export default class Ast {
   constructor(declaredClasses, strings, astNodes) {

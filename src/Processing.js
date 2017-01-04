@@ -2,10 +2,10 @@ import Parser from "./Parser";
 //import Sketch from "./Sketch";
 import generateDefaultScope from "./DefaultScope";
 
-import transformMain from "../src-temp/transform-main";
-import processPredirectives from "../src-temp/process-predirectives";
-import parseProcessing from "../src-temp/parse-processing";
-import injectStrings from "../src-temp/inject-strings";
+import transformMain from "./Parser/transform-main";
+import processPreDirectives from "./Parser/process-pre-directives";
+import parseProcessing from "./Parser/parse-processing";
+import injectStrings from "./Parser/inject-strings";
 
 var staticSketchList = [];
 
@@ -38,7 +38,8 @@ var Processing = {
    * run the conversion from source to AST
    */
   async parse(sourceCode) {
-    return transformMain(sourceCode);
+    let cleaned = processPreDirectives(sourceCode);
+    return transformMain(cleaned);
   },
 
   /**

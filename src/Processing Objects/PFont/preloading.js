@@ -1,8 +1,10 @@
 const preloading = {
   // template element used to compare font sizes
   template: {},
+
   // indicates whether or not the reference tiny font has been loaded
   initialized: false,
+
   // load the reference tiny font via a css @font-face rule
   initialize: function() {
     let generateTinyFont = function() {
@@ -37,12 +39,15 @@ const preloading = {
 
     this.initialized = true;
   },
+
   // Shorthand function to get the computed width for an element.
   getElementWidth: function(element) {
     return document.defaultView.getComputedStyle(element,"").getPropertyValue("width");
   },
+
   // time taken so far in attempting to load a font
   timeAttempted: 0,
+
   // returns false if no fonts are pending load, or true otherwise.
   pending: function(intervallength) {
     if (!this.initialized) {
@@ -72,14 +77,19 @@ const preloading = {
     // But, if we do get here, length!=0 so fonts are pending.
     return true;
   },
+
   // fontList contains elements to compare font sizes against a template
   fontList: [],
+
   // addedList contains the fontnames of all the fonts loaded via @font-face
   addedList: {},
+
   // adds a font to the font cache
   // creates an element using the font, to start loading the font,
   // and compare against a default font to see if the custom font is loaded
   add: function(fontSrc) {
+    console.log("XYZ");
+
     if (!this.initialized) {
      this.initialize();
     }
