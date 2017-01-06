@@ -6,6 +6,7 @@ An attempt at an ES2017 implementation of [Processing.js](https://github.com/pro
 - [x] rewrite how sketches are run (from new Function() to `<script>` elements instead)
 - [x] slot in some of the basic Processing API to get a canvas to do a thing at all
 - [ ] port Drawing2D
+  - [ ] make `loadImage` an async/await affair, with `requestImage` the traditional "it's done when it's done, run the sketch in the mean time" code path. 
 - [x] bundling
 - [x] add decent minification
 - [ ] add a test framework

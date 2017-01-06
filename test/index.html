@@ -1,8 +1,8 @@
 <!doctype html>
 <html>
   <head>
-  	<meta charset="utf-8">
-  	<title>Processingjs-ES7 test</title>
+    <meta charset="utf-8">
+    <title>Processingjs-ES7 test</title>
     <style> div { padding: 1em; background: grey; }
     </style>
   </head>
@@ -10,6 +10,8 @@
     <h1>Processingjs-ES7 test</h1>
     <div><canvas id="target"></canvas></div>
     <script type="text/processing" id="source">
+      /* @pjs font=Pamega.ttf */
+
       float angle = 0;
 
       int r = 50;
@@ -30,16 +32,16 @@
     </script>
     <script src="processing.js"></script>
     <script>
-    	let code = document.getElementById('source').textContent;
+      let code = document.getElementById('source').textContent;
       let target = document.getElementById('target');
       let hooks = {};
       //let hooknames = ['preSetup','postSetup','preDraw','postDraw','onFrameStart','onFrameEnd','onLoop','onPause'];
       //hooknames.forEach(hook => hooks[hook] = (...e) => console.log(`${hook} ${e}`));
       // Let's do this:
-    	Processing.parse(code)
-    	          .then(ast => Processing.convert(ast))
-    	          .then(res => Processing.injectSketch(res, target, {}, hooks))
-    	          .catch(error => console.error(error));
+      Processing.parse(code)
+                .then(ast => Processing.convert(ast))
+                .then(res => Processing.injectSketch(res, target, {}, hooks))
+                .catch(console.error);
     </script>
   </body>
 </html>
