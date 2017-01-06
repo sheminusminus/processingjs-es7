@@ -13,7 +13,7 @@ The process of conversion and interpretation runs through quite a few steps, so 
 
 1. The source code is read either from file(s) or `script.textContent`(s)
 2. The source is aggregated into one giant string
-3. This string is handed off to the parser, which converts it to a javascript-implementatio of a Processing AST
+3. This string is handed off to the parser, which converts it to a javascript-implementation of a Processing AST
 4. The AST is then told to serialize itself as JavaScript code
 5. This leads to a skech of the following form:
 
