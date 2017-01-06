@@ -9,11 +9,11 @@ An attempt at an ES2017 implementation of [Processing.js](https://github.com/pro
 
 ## From source code to animation on a page
 
-The process of conversion and interpretation runs through quite a few steps, so buckle up, here's the entire codepath:
+The process of conversion and interpretation runs through quite a few steps, so buckle up, here's the [entire codepath](src/Processing.js#L126-L138):
 
 1. The source code is read either from file(s) or `script.textContent`(s)
 2. The source is aggregated into one giant string
-3. This string is handed off to the parser, which converts it to a javascript-implementatio of a Processing AST
+3. This string is handed off to the parser, which converts it to a javascript-implementation of a Processing AST
 4. The AST is then told to serialize itself as JavaScript code
 5. This leads to a skech of the following form:
 
@@ -31,13 +31,13 @@ The process of conversion and interpretation runs through quite a few steps, so 
 This code is then handed back to the page in the form of a `<script>` element, injected into the `<head>` (with the `{{ SKETCH_ID_PLACEHOLDER }}` part turned into a numerical identifier), which causes the browser to run it as it would any other JavaScript. This does a few things:
 
  - `3: let $p = PJS.generateDefaultScope();` this calls `Processing.generateDefaultScope`, which in turn falls through to `DefaultScope.generateDefaultScope()`, which generates the bulk of the Processing API, albeit not associated with any particular sketch yet.
- - `7: PJS.onSketchLoad($p);` this calls `Processing.onSketchLoad()` with the scoping object generated above as argument. This function crosslinks the incoming sketch with some cached values before its javascript source get injected into the page, and then wraps the sketch in a `SketchRunner` object, which is responsible for the whole "animation" thing.
+ - `7: PJS.onSketchLoad($p);` this calls `Processing.onSketchLoad()` with the scoping object generated above as argument. This function crosslinks the incoming sketch with some cached values it knows about from before the javascript source got injected into the page, and then wraps the sketch in a [`SketchRunner`](src/SketchRunner.js) object, which is responsible for the whole "animation" thing.
  - the `SketchRunner` performs the hooking of sketch-specific API functions and constants into the generic scope object it was passed, and now we have an actually fully functioning sketch object. We just need to run it.
  - Unsurprisingly, this is the final function call in `Processing.onSketchLoad` before it returns.
 
 ## How does the DefaultScope impart Processing API aspects?
 
-The `DefaultScope` is literally an aggregation of everything in the Processing API that is not directly tied to the running state of a sketch. This includes things like Processing constants, Object data types like ArrayList or Hashmap, Maths functions etc. It does this in a slightly not-ES7-ish way though:
+The [`DefaultScope`](src/DefaultScope.js) is literally an aggregation of everything in the Processing API that is not directly tied to the running state of a sketch. This includes things like Processing constants, Object data types like ArrayList or Hashmap, Maths functions etc. It does this in a slightly not-ES7-ish way though:
 
 ```
 import PConstants from "./PConstants";
@@ -108,7 +108,7 @@ So sketches are assigned their own set of functions each for these type of funct
 
 ## How does the Drawing context impart processing API aspects?
 
-Finally, the third way Processing API functionality is imparted is through the `DrawingShared` class, which the concrete `Drawing2D` and `Drawing3D` classes extend. These classes are found in the `./src/drawing` directory, and of the three ways the API is imparted, is frankly the least inspiring:
+Finally, the third way Processing API functionality is imparted is through the [`DrawingShared`](src/drawing/DrawingShared.js) class, which the concrete `Drawing2D` and `Drawing3D` classes extend. These classes are found in the `./src/drawing` directory, and of the three ways the API is imparted, is frankly the least inspiring:
 
 ```
 class DrawingShared {
@@ -128,7 +128,7 @@ The `DrawingShared` class houses all the drawing-related locally scoped variable
 
 ## The parser
 
-The parser is found in `./src/Parser/` and its main entry point is transformMain() in `./src/Parser/transform-main.js`. This function cleans up the code that's being passed in, runs it through AST abstraction, and then spits out an AST representing the Processing code in terms of an abstract syntax tree with an `AST` node at the top.
+The parser is found in [`./src/Parser/`](src/Parser) and its main entry point is transformMain() in [`./src/Parser/transform-main.js`](src/Parser/transform-main.js). This function cleans up the code that's being passed in, runs it through AST abstraction, and then spits out an AST representing the Processing code in terms of an abstract syntax tree with an [`AST` node](src/Parser/ast%20objects/ast.js) at the top.
 
 This AST and any node in it knows how to serialize itself into JavaScript (a process which may, and does, rewrite certain code instructions to function calls into the `DefaultScope` for hooking up things in JavaScript in a way that matches the different way Java wants to do things), and so the only thing needed to convert an AST into (hopefully) working JavaScript is to call `ast.toString()`,
 
