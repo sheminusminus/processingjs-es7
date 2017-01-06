@@ -33,8 +33,9 @@ export default class SketchRunner {
     colorBindings(this.sketch, this.hooks);
     this.startLooping = playBindings(this.sketch, this.hooks);
 
-    // FIXME: TODO: test size() doing anything at all. REMOVE LATER... possibly
-    this.sketch.__setup_drawing_context(this.target, this.target.getContext("2d"));
+    // set up a JIT-binding call so that when the sketch calls
+    // size(), the correct context gets bound to the instance.
+    this.sketch.$perform_initial_binding(this.target);
   }
 
   /**

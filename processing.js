@@ -4076,8 +4076,8 @@ class DrawingShared {
 }
 
 class Drawing2D extends DrawingShared {
-	constructor(sketch, canvas, context) {
-    super(sketch, canvas, context);
+	constructor(sketch, canvas) {
+    super(sketch, canvas, canvas.getContext("2d"));
 	}
 
   $newPMatrix() {
@@ -6041,10 +6041,22 @@ function generateDefaultScope(additionalScopes) {
     });
   }
 
-  // FIXME: TODO: testing size() calls
-  defaultScope.__setup_drawing_context = function(canvas, context) {
-    let dContext = new Drawing2D(defaultScope, canvas, context);
-    defaultScope.context = dContext;
+  // initial size() binding, responsible for JIT-binding the true graphics context.
+  defaultScope.$perform_initial_binding = function(canvas) {
+    defaultScope.size = function(aWidth, aHeight, aMode) {
+      if (!aMode || aMode === PConstants$1.P2D) {
+        defaultScope.context = new Drawing2D(defaultScope, canvas);
+      }
+      else if (aMode === PConstants$1.P3D) {
+        // FIXME: TODO: not ported yet
+        // defaultScope.context = new Drawing3D(defaultScope, canvas);
+      }
+      else {
+        throw new Error("Unsupported mode supplied to size(). For 2D mode use P2D or JAVA2D, for 3D mode use P3D, OPENGL, or WEBGL");
+      }
+      defaultScope.size(aWidth, aHeight, aMode);
+    };
+    delete defaultScope.$perform_initial_binding;
   };
 
 
@@ -6871,8 +6883,9 @@ class SketchRunner {
     colorBindings(this.sketch, this.hooks);
     this.startLooping = playBindings(this.sketch, this.hooks);
 
-    // FIXME: TODO: test size() doing anything at all. REMOVE LATER... possibly
-    this.sketch.__setup_drawing_context(this.target, this.target.getContext("2d"));
+    // set up a JIT-binding call so that when the sketch calls
+    // size(), the correct context gets bound to the instance.
+    this.sketch.$perform_initial_binding(this.target);
   }
 
   /**

@@ -77,10 +77,22 @@ export default function generateDefaultScope(additionalScopes) {
     });
   }
 
-  // FIXME: TODO: testing size() calls
-  defaultScope.__setup_drawing_context = function(canvas, context) {
-    let dContext = new Drawing2D(defaultScope, canvas, context);
-    defaultScope.context = dContext;
+  // initial size() binding, responsible for JIT-binding the true graphics context.
+  defaultScope.$perform_initial_binding = function(canvas) {
+    defaultScope.size = function(aWidth, aHeight, aMode) {
+      if (!aMode || aMode === PConstants.P2D) {
+        defaultScope.context = new Drawing2D(defaultScope, canvas);
+      }
+      else if (aMode === PConstants.P3D) {
+        // FIXME: TODO: not ported yet
+        // defaultScope.context = new Drawing3D(defaultScope, canvas);
+      }
+      else {
+        throw new Error("Unsupported mode supplied to size(). For 2D mode use P2D or JAVA2D, for 3D mode use P3D, OPENGL, or WEBGL");
+      }
+      defaultScope.size(aWidth, aHeight, aMode);
+    };
+    delete defaultScope.$perform_initial_binding;
   }
 
 

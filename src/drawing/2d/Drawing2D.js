@@ -4,8 +4,8 @@ import PImage from "../../Processing Objects/PImage";
 import DrawingShared from "../DrawingShared";
 
 export default class Drawing2D extends DrawingShared {
-	constructor(sketch, canvas, context) {
-    super(sketch, canvas, context);
+	constructor(sketch, canvas) {
+    super(sketch, canvas, canvas.getContext("2d"));
 	}
 
   $newPMatrix() {
