@@ -6,13 +6,15 @@
   "scripts": {
     "clear": "node ./utils/clear",
     "build": "rollup -c",
-    "test": "npm run clear && npm run build && shx cp processing.js test/processing.js && http-server ./test"
+    "minify": "babili --no-comments processing.js > processing.min.js",
+    "test": "npm run clear && npm run build && npm run minify && shx cp processing.min.js test/processing.js && http-server ./test"
   },
   "keywords": [
     "processingjs"
   ],
   "author": "Pomax",
   "dependencies": {
+    "babili": "0.0.9",
     "rollup": "^0.38.1",
     "rollup-plugin-json": "^2.1.0",
     "shx": "^0.2.1"

@@ -136,6 +136,12 @@ This AST and any node in it knows how to serialize itself into JavaScript (a pro
 
 This code is still in a pre-release stage, and architectural designs might still change before a final "port to ES7" is deemed done. Don't trust that any part of this codebase is stable, and don't rely on any of the approaches described above and found the code are going to still be there by the time the porting process is completed.
 
+## NPM tasks
+
+- `build` uses [rollup](http://rollupjs.org) to bundle all the source
+- `minify` uses [babili](https://github.com/babel/babili) (with comments stripping) to minify the resulting bundle
+- `test` runs the build/minification steps and drops a copy of pjs into the `./test` direction, which an instance of [http-server](https://www.npmjs.com/package/http-server) then loads up as http://localhost:8080 for you to test.
+
 ## Specific Licenses
 
 The Processing.js code is licensed under the same terms as listed on [the Processing.js repository](https://github.com/processing-js/processing-js/blob/master/CONTRIBUTING.md#what-happens-with-my-contributions-will-i-get-credit)
