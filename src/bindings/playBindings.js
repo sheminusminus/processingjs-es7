@@ -28,7 +28,7 @@ export default function playBindings(p, hooks) {
   * @see noLoop
   * @see loop
   */
-  function redrawHelper() {
+  p.$redrawHelper = function() {
     let sec = (Date.now() - timeSinceLastFPS) / 1000;
     framesSinceLastFPS++;
     let fps = framesSinceLastFPS / sec;
@@ -120,25 +120,6 @@ export default function playBindings(p, hooks) {
       p.noLoop();
       p.loop();
     }
-  };
-
-  p.redraw = function() {
-    redrawHelper();
-
-    // curContext.lineWidth = lineWidth;
-    // var pmouseXLastEvent = p.pmouseX,
-    //     pmouseYLastEvent = p.pmouseY;
-    // p.pmouseX = pmouseXLastFrame;
-    // p.pmouseY = pmouseYLastFrame;
-
-    // saveContext();
-    p.draw();
-    // restoreContext();
-
-    // pmouseXLastFrame = p.mouseX;
-    // pmouseYLastFrame = p.mouseY;
-    // p.pmouseX = pmouseXLastEvent;
-    // p.pmouseY = pmouseYLastEvent;
   };
 
   // Internal function for kicking off the draw loop

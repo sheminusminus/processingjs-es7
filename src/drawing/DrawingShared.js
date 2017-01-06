@@ -1,3 +1,4 @@
+import drawFunctions from "./drawFunctions";
 import PConstants from "../PConstants";
 import PFont from "../Processing Objects/PFont/PFont";
 import PImage from "../Processing Objects/PImage";
@@ -201,9 +202,9 @@ export default class DrawingShared {
   }
 
   bindSketchFNames(p) {
-    p.size = this.size.bind(this);
-    p.background = this.background.bind(this);
-    p.alpha = this.alpha.bind(this);
+    drawFunctions.forEach(fn => {
+      p[fn] = this[fn].bind(this);
+    });
   }
 
   a3DOnlyFunction() {
@@ -287,12 +288,12 @@ export default class DrawingShared {
       curElement.style.removeProperty("height");
     }
 
-    curElement.width = p.width = aWidth || 100;
-    curElement.height = p.height = aHeight || 100;
+    this.curElement.width = this.curSketch.width = aWidth || 100;
+    this.curElement.height = this.curSketch.height = aHeight || 100;
 
     for (var prop in savedProperties) {
       if (savedProperties.hasOwnProperty(prop)) {
-        curContext[prop] = savedProperties[prop];
+        this.curContext[prop] = savedProperties[prop];
       }
     }
 
@@ -313,10 +314,27 @@ export default class DrawingShared {
 //    this.curSketch.externals.context = curContext;
 
     for (let i = 0; i < PConstants.SINCOS_LENGTH; i++) {
-      this.sinLUT[i] = Math.sin(i * (MATH.PI / 180) * 0.5);
-      this.cosLUT[i] = Math.cos(i * (MATH.PI / 180) * 0.5);
+      this.sinLUT[i] = Math.sin(i * (Math.PI / 180) * 0.5);
+      this.cosLUT[i] = Math.cos(i * (Math.PI / 180) * 0.5);
     }
   }
+
+  redraw() {
+    let p = this.curSketch;
+    p.$redrawHelper();
+    this.curContext.lineWidth = this.lineWidth;
+    // var pmouseXLastEvent = p.pmouseX,
+    //     pmouseYLastEvent = p.pmouseY;
+    // p.pmouseX = pmouseXLastFrame;
+    // p.pmouseY = pmouseYLastFrame;
+    this.saveContext();
+    p.draw();
+    this.restoreContext();
+    // pmouseXLastFrame = p.mouseX;
+    // pmouseYLastFrame = p.mouseY;
+    // p.pmouseX = pmouseXLastEvent;
+    // p.pmouseY = pmouseYLastEvent;
+  };
 
   /**
    * The fill() function sets the color used to fill shapes. For example, if you run <b>fill(204, 102, 0)</b>, all subsequent shapes will be filled with orange.
@@ -342,8 +360,8 @@ export default class DrawingShared {
    * @see #background()
    * @see #colorMode()
    */
-  fill() {
-    let color = this.curSketch.color.apply(this, arguments);
+  fill(...channels) {
+    let color = this.curSketch.color(...channels);
     if(color === this.currentFillColor && this.doFill) {
       return;
     }
@@ -381,15 +399,14 @@ export default class DrawingShared {
    * @see #background()
    * @see #colorMode()
    */
-  stroke() {
-    let color = this.curSketch.color.apply(this, arguments);
+  stroke(...channels) {
+    let color = this.curSketch.color(...channels);
     if(color === this.currentStrokeColor && this.doStroke) {
       return;
     }
     this.doStroke = true;
     this.currentStrokeColor = color;
   }
-
 
   /**
    * The strokeWeight() function sets the width of the stroke used for lines, points, and the border around shapes.
@@ -421,5 +438,32 @@ export default class DrawingShared {
 
   alpha(aColor) {
     return ((aColor & PConstants.ALPHA_MASK) >>> 24) / 255 * this.colorModeA;
+  }
+
+  executeContextStroke() {
+    if(this.doStroke) {
+      if(this.isStrokeDirty) {
+        this.curContext.strokeStyle = this.curSketch.color.toString(this.currentStrokeColor);
+        this.isStrokeDirty = false;
+      }
+      this.curContext.stroke();
+    }
+  }
+
+  textFont(pfont, size) {
+    if (size !== undefined) {
+      // If we're using an SVG glyph font, don't load from cache
+      if (!pfont.glyph) {
+        pfont = PFont.get(pfont.name, size);
+      }
+      this.curTextSize = size;
+    }
+
+    let curTextFont = this.curTextFont = pfont;
+    this.curFontName = curTextFont.name;
+    this.curTextAscent = curTextFont.ascent;
+    this.curTextDescent = curTextFont.descent;
+    this.curTextLeading = curTextFont.leading;
+    this.curContext.font = curTextFont.css;
   }
 };

@@ -1812,15 +1812,27 @@ function setWeight(declaredClasses) {
 
 }
 
+const drawFunctions = [
+  "size",
+  "redraw",
+  "background",
+  "alpha",
+  "fill",
+  "stroke",
+  "line",
+  "textFont",
+  "rotate",
+  "translate"
+];
+
 /**
  * The list of official Processing API keywords as defined by the official
  * Processing reference over on https://processing.org/reference
  */
 
-var names = [
+var names = drawFunctions.concat([
     "abs",
     "acos",
-    "alpha",
     "ambient",
     "ambientLight",
     "append",
@@ -1830,7 +1842,6 @@ var names = [
     "asin",
     "atan",
     "atan2",
-    "background",
     "beginCamera",
     "beginDraw",
     "beginShape",
@@ -1883,7 +1894,6 @@ var names = [
     "exp",
     "expand",
     "externals",
-    "fill",
     "filter",
     "floor",
     "focused",
@@ -1913,7 +1923,6 @@ var names = [
     "lightFalloff",
     "lights",
     "lightSpecular",
-    "line",
     "link",
     "loadBytes",
     "loadFont",
@@ -2011,7 +2020,6 @@ var names = [
     "requestImage",
     "resetMatrix",
     "reverse",
-    "rotate",
     "rotateX",
     "rotateY",
     "rotateZ",
@@ -2035,7 +2043,6 @@ var names = [
     "shininess",
     "shorten",
     "sin",
-    "size",
     "smooth",
     "sort",
     "specular",
@@ -2049,7 +2056,6 @@ var names = [
     "sqrt",
     "status",
     "str",
-    "stroke",
     "strokeCap",
     "strokeJoin",
     "strokeWeight",
@@ -2059,7 +2065,6 @@ var names = [
     "textAlign",
     "textAscent",
     "textDescent",
-    "textFont",
     "textLeading",
     "textMode",
     "textSize",
@@ -2105,7 +2110,7 @@ var names = [
     "__startsWith",
     "__endsWith",
     "__matches"
-];
+]);
 
 // // custom functions and properties are added here
 // if(aFunctions) {
@@ -2425,6 +2430,425 @@ const PConstants$1 = {
     NORMAL_MODE_VERTEX: 2,
     MAX_LIGHTS:         8
 };
+
+class PMatrix2D  {
+
+	constructor() {
+    if (arguments.length === 0) {
+      this.reset();
+    } else if (arguments.length === 1 && arguments[0] instanceof PMatrix2D) {
+      this.set(arguments[0].array());
+    } else if (arguments.length === 6) {
+      this.set(arguments[0], arguments[1], arguments[2], arguments[3], arguments[4], arguments[5]);
+    }
+  }
+
+  /**
+   * @member PMatrix2D
+   * The reset() function sets this PMatrix2D to the identity matrix.
+   */
+  reset() {
+    this.set([1, 0, 0, 0, 1, 0]);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The set() function sets the matrix elements. The function accepts either another PMatrix2D, an array of elements, or a list of six floats.
+   *
+   * @param {PMatrix2D} matrix    the matrix to set this matrix to
+   * @param {float[]} elements    an array of elements to set this matrix to
+   * @param {float} m00           the first element of the matrix
+   * @param {float} m01           the third element of the matrix
+   * @param {float} m10           the fourth element of the matrix
+   * @param {float} m11           the fith element of the matrix
+   * @param {float} m12           the sixth element of the matrix
+   */
+  set() {
+    if (arguments.length === 6) {
+      var a = arguments;
+      this.set([a[0], a[1], a[2],
+                a[3], a[4], a[5]]);
+    } else if (arguments.length === 1 && arguments[0] instanceof PMatrix2D) {
+      this.elements = arguments[0].array();
+    } else if (arguments.length === 1 && arguments[0] instanceof Array) {
+      this.elements = arguments[0].slice();
+    }
+  }
+
+  /**
+   * @member PMatrix2D
+   * The get() function returns a copy of this PMatrix2D.
+   *
+   * @return {PMatrix2D} a copy of this PMatrix2D
+   */
+  get() {
+    var outgoing = new PMatrix2D();
+    outgoing.set(this.elements);
+    return outgoing;
+  }
+
+  /**
+   * @member PMatrix2D
+   * The array() function returns a copy of the element values.
+   * @addon
+   *
+   * @return {float[]} returns a copy of the element values
+   */
+  array() {
+    return this.elements.slice();
+  }
+
+  /**
+   * @member PMatrix2D
+   * The translate() function translates this matrix by moving the current coordinates to the location specified by tx and ty.
+   *
+   * @param {float} tx  the x-axis coordinate to move to
+   * @param {float} ty  the y-axis coordinate to move to
+   */
+  translate(tx, ty) {
+    this.elements[2] = tx * this.elements[0] + ty * this.elements[1] + this.elements[2];
+    this.elements[5] = tx * this.elements[3] + ty * this.elements[4] + this.elements[5];
+  }
+
+  /**
+   * @member PMatrix2D
+   * The invTranslate() function translates this matrix by moving the current coordinates to the negative location specified by tx and ty.
+   *
+   * @param {float} tx  the x-axis coordinate to move to
+   * @param {float} ty  the y-axis coordinate to move to
+   */
+  invTranslate(tx, ty) {
+    this.translate(-tx, -ty);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The transpose() function is not used in processingjs.
+   */
+  transpose() {
+    // Does nothing in Processing.
+  }
+
+  /**
+   * @member PMatrix2D
+   * The mult() function multiplied this matrix.
+   * If two array elements are passed in the function will multiply a two element vector against this matrix.
+   * If target is null or not length four, a new float array will be returned.
+   * The values for vec and target can be the same (though that's less efficient).
+   * If two PVectors are passed in the function multiply the x and y coordinates of a PVector against this matrix.
+   *
+   * @param {PVector} source, target  the PVectors used to multiply this matrix
+   * @param {float[]} source, target  the arrays used to multiply this matrix
+   *
+   * @return {PVector|float[]} returns a PVector or an array representing the new matrix
+   */
+  mult(source, target) {
+    var x, y;
+    if (source instanceof PVector) {
+      x = source.x;
+      y = source.y;
+      if (!target) {
+        target = new PVector();
+      }
+    } else if (source instanceof Array) {
+      x = source[0];
+      y = source[1];
+      if (!target) {
+        target = [];
+      }
+    }
+    if (target instanceof Array) {
+      target[0] = this.elements[0] * x + this.elements[1] * y + this.elements[2];
+      target[1] = this.elements[3] * x + this.elements[4] * y + this.elements[5];
+    } else if (target instanceof PVector) {
+      target.x = this.elements[0] * x + this.elements[1] * y + this.elements[2];
+      target.y = this.elements[3] * x + this.elements[4] * y + this.elements[5];
+      target.z = 0;
+    }
+    return target;
+  }
+
+  /**
+   * @member PMatrix2D
+   * The multX() function calculates the x component of a vector from a transformation.
+   *
+   * @param {float} x the x component of the vector being transformed
+   * @param {float} y the y component of the vector being transformed
+   *
+   * @return {float} returnes the result of the calculation
+   */
+  multX(x, y) {
+    return (x * this.elements[0] + y * this.elements[1] + this.elements[2]);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The multY() function calculates the y component of a vector from a transformation.
+   *
+   * @param {float} x the x component of the vector being transformed
+   * @param {float} y the y component of the vector being transformed
+   *
+   * @return {float} returnes the result of the calculation
+   */
+  multY(x, y) {
+    return (x * this.elements[3] + y * this.elements[4] + this.elements[5]);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The skewX() function skews the matrix along the x-axis the amount specified by the angle parameter.
+   * Angles should be specified in radians (values from 0 to PI*2) or converted to radians with the <b>radians()</b> function.
+   *
+   * @param {float} angle  angle of skew specified in radians
+   */
+  skewX(angle) {
+    this.apply(1, 0, 1, angle, 0, 0);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The skewY() function skews the matrix along the y-axis the amount specified by the angle parameter.
+   * Angles should be specified in radians (values from 0 to PI*2) or converted to radians with the <b>radians()</b> function.
+   *
+   * @param {float} angle  angle of skew specified in radians
+   */
+  skewY(angle) {
+    this.apply(1, 0, 1,  0, angle, 0);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The shearX() function shears the matrix along the x-axis the amount specified by the angle parameter.
+   * Angles should be specified in radians (values from 0 to PI*2) or converted to radians with the <b>radians()</b> function.
+   *
+   * @param {float} angle  angle of skew specified in radians
+   */
+  shearX(angle) {
+    this.apply(1, 0, 1, Math.tan(angle) , 0, 0);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The shearY() function shears the matrix along the y-axis the amount specified by the angle parameter.
+   * Angles should be specified in radians (values from 0 to PI*2) or converted to radians with the <b>radians()</b> function.
+   *
+   * @param {float} angle  angle of skew specified in radians
+   */
+  shearY(angle) {
+    this.apply(1, 0, 1,  0, Math.tan(angle), 0);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The determinant() function calvculates the determinant of this matrix.
+   *
+   * @return {float} the determinant of the matrix
+   */
+  determinant() {
+    return (this.elements[0] * this.elements[4] - this.elements[1] * this.elements[3]);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The invert() function inverts this matrix
+   *
+   * @return {boolean} true if successful
+   */
+  invert() {
+    var d = this.determinant();
+    if (Math.abs( d ) > PConstants.MIN_INT) {
+      var old00 = this.elements[0];
+      var old01 = this.elements[1];
+      var old02 = this.elements[2];
+      var old10 = this.elements[3];
+      var old11 = this.elements[4];
+      var old12 = this.elements[5];
+      this.elements[0] =  old11 / d;
+      this.elements[3] = -old10 / d;
+      this.elements[1] = -old01 / d;
+      this.elements[4] =  old00 / d;
+      this.elements[2] = (old01 * old12 - old11 * old02) / d;
+      this.elements[5] = (old10 * old02 - old00 * old12) / d;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * @member PMatrix2D
+   * The scale() function increases or decreases the size of a shape by expanding and contracting vertices. When only one parameter is specified scale will occur in all dimensions.
+   * This is equivalent to a two parameter call.
+   *
+   * @param {float} sx  the amount to scale on the x-axis
+   * @param {float} sy  the amount to scale on the y-axis
+   */
+  scale(sx, sy) {
+    if (sx && !sy) {
+      sy = sx;
+    }
+    if (sx && sy) {
+      this.elements[0] *= sx;
+      this.elements[1] *= sy;
+      this.elements[3] *= sx;
+      this.elements[4] *= sy;
+    }
+  }
+
+  /**
+    * @member PMatrix2D
+    * The invScale() function decreases or increases the size of a shape by contracting and expanding vertices. When only one parameter is specified scale will occur in all dimensions.
+    * This is equivalent to a two parameter call.
+    *
+    * @param {float} sx  the amount to scale on the x-axis
+    * @param {float} sy  the amount to scale on the y-axis
+    */
+  invScale(sx, sy) {
+    if (sx && !sy) {
+      sy = sx;
+    }
+    this.scale(1 / sx, 1 / sy);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The apply() function multiplies the current matrix by the one specified through the parameters. Note that either a PMatrix2D or a list of floats can be passed in.
+   *
+   * @param {PMatrix2D} matrix    the matrix to apply this matrix to
+   * @param {float} m00           the first element of the matrix
+   * @param {float} m01           the third element of the matrix
+   * @param {float} m10           the fourth element of the matrix
+   * @param {float} m11           the fith element of the matrix
+   * @param {float} m12           the sixth element of the matrix
+   */
+  apply() {
+    var source;
+    if (arguments.length === 1 && arguments[0] instanceof PMatrix2D) {
+      source = arguments[0].array();
+    } else if (arguments.length === 6) {
+      source = Array.prototype.slice.call(arguments);
+    } else if (arguments.length === 1 && arguments[0] instanceof Array) {
+      source = arguments[0];
+    }
+
+    var result = [0, 0, this.elements[2],
+                  0, 0, this.elements[5]];
+    var e = 0;
+    for (var row = 0; row < 2; row++) {
+      for (var col = 0; col < 3; col++, e++) {
+        result[e] += this.elements[row * 3 + 0] * source[col + 0] +
+                     this.elements[row * 3 + 1] * source[col + 3];
+      }
+    }
+    this.elements = result.slice();
+  }
+
+  /**
+   * @member PMatrix2D
+   * The preApply() function applies another matrix to the left of this one. Note that either a PMatrix2D or elements of a matrix can be passed in.
+   *
+   * @param {PMatrix2D} matrix    the matrix to apply this matrix to
+   * @param {float} m00           the first element of the matrix
+   * @param {float} m01           the third element of the matrix
+   * @param {float} m10           the fourth element of the matrix
+   * @param {float} m11           the fith element of the matrix
+   * @param {float} m12           the sixth element of the matrix
+   */
+  preApply() {
+    var source;
+    if (arguments.length === 1 && arguments[0] instanceof PMatrix2D) {
+      source = arguments[0].array();
+    } else if (arguments.length === 6) {
+      source = Array.prototype.slice.call(arguments);
+    } else if (arguments.length === 1 && arguments[0] instanceof Array) {
+      source = arguments[0];
+    }
+    var result = [0, 0, source[2],
+                  0, 0, source[5]];
+    result[2] = source[2] + this.elements[2] * source[0] + this.elements[5] * source[1];
+    result[5] = source[5] + this.elements[2] * source[3] + this.elements[5] * source[4];
+    result[0] = this.elements[0] * source[0] + this.elements[3] * source[1];
+    result[3] = this.elements[0] * source[3] + this.elements[3] * source[4];
+    result[1] = this.elements[1] * source[0] + this.elements[4] * source[1];
+    result[4] = this.elements[1] * source[3] + this.elements[4] * source[4];
+    this.elements = result.slice();
+  }
+
+  /**
+   * @member PMatrix2D
+   * The rotate() function rotates the matrix.
+   *
+   * @param {float} angle         the angle of rotation in radiants
+   */
+  rotate(angle) {
+    var c = Math.cos(angle);
+    var s = Math.sin(angle);
+    var temp1 = this.elements[0];
+    var temp2 = this.elements[1];
+    this.elements[0] =  c * temp1 + s * temp2;
+    this.elements[1] = -s * temp1 + c * temp2;
+    temp1 = this.elements[3];
+    temp2 = this.elements[4];
+    this.elements[3] =  c * temp1 + s * temp2;
+    this.elements[4] = -s * temp1 + c * temp2;
+  }
+
+  /**
+   * @member PMatrix2D
+   * The rotateZ() function rotates the matrix.
+   *
+   * @param {float} angle         the angle of rotation in radiants
+   */
+  rotateZ(angle) {
+    this.rotate(angle);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The invRotateZ() function rotates the matrix in opposite direction.
+   *
+   * @param {float} angle         the angle of rotation in radiants
+   */
+  invRotateZ(angle) {
+    this.rotateZ(angle - Math.PI);
+  }
+
+  /**
+   * @member PMatrix2D
+   * The print() function prints out the elements of this matrix
+   */
+  print() {
+    var digits = printMatrixHelper(this.elements);
+    var output = "" + p.nfs(this.elements[0], digits, 4) + " " +
+                 p.nfs(this.elements[1], digits, 4) + " " +
+                 p.nfs(this.elements[2], digits, 4) + "\n" +
+                 p.nfs(this.elements[3], digits, 4) + " " +
+                 p.nfs(this.elements[4], digits, 4) + " " +
+                 p.nfs(this.elements[5], digits, 4) + "\n\n";
+    p.println(output);
+  }
+}
+
+/**
+ * @private
+ * The matrix stack stores the transformations and translations that occur within the space.
+ */
+class PMatrixStack {
+  constructor(Drawing2Dor3D) {
+    this.stackType = Drawing2Dor3D;
+    this.matrixStack = [];
+  }
+
+  load() {
+    let tmpMatrix = this.stackType.$newPMatrix();
+
+    if (arguments.length === 1) {
+      tmpMatrix.set(arguments[0]);
+    } else {
+      tmpMatrix.set(arguments);
+    }
+    this.matrixStack.push(tmpMatrix);
+  }
+}
 
 /**
 * Datatype for storing images. Processing can display .gif, .jpg, .tga, and .png images. Images may be
@@ -3385,9 +3809,9 @@ class DrawingShared {
   }
 
   bindSketchFNames(p) {
-    p.size = this.size.bind(this);
-    p.background = this.background.bind(this);
-    p.alpha = this.alpha.bind(this);
+    drawFunctions.forEach(fn => {
+      p[fn] = this[fn].bind(this);
+    });
   }
 
   a3DOnlyFunction() {
@@ -3471,12 +3895,12 @@ class DrawingShared {
       curElement.style.removeProperty("height");
     }
 
-    curElement.width = p.width = aWidth || 100;
-    curElement.height = p.height = aHeight || 100;
+    this.curElement.width = this.curSketch.width = aWidth || 100;
+    this.curElement.height = this.curSketch.height = aHeight || 100;
 
     for (var prop in savedProperties) {
       if (savedProperties.hasOwnProperty(prop)) {
-        curContext[prop] = savedProperties[prop];
+        this.curContext[prop] = savedProperties[prop];
       }
     }
 
@@ -3497,10 +3921,27 @@ class DrawingShared {
 //    this.curSketch.externals.context = curContext;
 
     for (let i = 0; i < PConstants$1.SINCOS_LENGTH; i++) {
-      this.sinLUT[i] = Math.sin(i * (MATH.PI / 180) * 0.5);
-      this.cosLUT[i] = Math.cos(i * (MATH.PI / 180) * 0.5);
+      this.sinLUT[i] = Math.sin(i * (Math.PI / 180) * 0.5);
+      this.cosLUT[i] = Math.cos(i * (Math.PI / 180) * 0.5);
     }
   }
+
+  redraw() {
+    let p = this.curSketch;
+    p.$redrawHelper();
+    this.curContext.lineWidth = this.lineWidth;
+    // var pmouseXLastEvent = p.pmouseX,
+    //     pmouseYLastEvent = p.pmouseY;
+    // p.pmouseX = pmouseXLastFrame;
+    // p.pmouseY = pmouseYLastFrame;
+    this.saveContext();
+    p.draw();
+    this.restoreContext();
+    // pmouseXLastFrame = p.mouseX;
+    // pmouseYLastFrame = p.mouseY;
+    // p.pmouseX = pmouseXLastEvent;
+    // p.pmouseY = pmouseYLastEvent;
+  };
 
   /**
    * The fill() function sets the color used to fill shapes. For example, if you run <b>fill(204, 102, 0)</b>, all subsequent shapes will be filled with orange.
@@ -3526,8 +3967,8 @@ class DrawingShared {
    * @see #background()
    * @see #colorMode()
    */
-  fill() {
-    let color = this.curSketch.color.apply(this, arguments);
+  fill(...channels) {
+    let color = this.curSketch.color(...channels);
     if(color === this.currentFillColor && this.doFill) {
       return;
     }
@@ -3565,15 +4006,14 @@ class DrawingShared {
    * @see #background()
    * @see #colorMode()
    */
-  stroke() {
-    let color = this.curSketch.color.apply(this, arguments);
+  stroke(...channels) {
+    let color = this.curSketch.color(...channels);
     if(color === this.currentStrokeColor && this.doStroke) {
       return;
     }
     this.doStroke = true;
     this.currentStrokeColor = color;
   }
-
 
   /**
    * The strokeWeight() function sets the width of the stroke used for lines, points, and the border around shapes.
@@ -3606,6 +4046,33 @@ class DrawingShared {
   alpha(aColor) {
     return ((aColor & PConstants$1.ALPHA_MASK) >>> 24) / 255 * this.colorModeA;
   }
+
+  executeContextStroke() {
+    if(this.doStroke) {
+      if(this.isStrokeDirty) {
+        this.curContext.strokeStyle = this.curSketch.color.toString(this.currentStrokeColor);
+        this.isStrokeDirty = false;
+      }
+      this.curContext.stroke();
+    }
+  }
+
+  textFont(pfont, size) {
+    if (size !== undefined) {
+      // If we're using an SVG glyph font, don't load from cache
+      if (!pfont.glyph) {
+        pfont = PFont.get(pfont.name, size);
+      }
+      this.curTextSize = size;
+    }
+
+    let curTextFont = this.curTextFont = pfont;
+    this.curFontName = curTextFont.name;
+    this.curTextAscent = curTextFont.ascent;
+    this.curTextDescent = curTextFont.descent;
+    this.curTextLeading = curTextFont.leading;
+    this.curContext.font = curTextFont.css;
+  }
 }
 
 class Drawing2D extends DrawingShared {
@@ -3613,16 +4080,16 @@ class Drawing2D extends DrawingShared {
     super(sketch, canvas, context);
 	}
 
-  size(aWidth, aHeight, aMode) {
-    if (this.curContext === undefined) {
-      // size() was called without p.init() default context, i.e. p.createGraphics()
-      this.curContext = curElement.getContext("2d");
-//      this.userMatrixStack = new PMatrixStack();
-//      this.userReverseMatrixStack = new PMatrixStack();
-//      this.modelView = new PMatrix2D();
-//      this.modelViewInv = new PMatrix2D();
-    }
+  $newPMatrix() {
+    return new PMatrix2D();
+  }
 
+  size(aWidth, aHeight, aMode) {
+    this.curContext = this.curElement.getContext("2d");
+    this.userMatrixStack = new PMatrixStack();
+    this.userReverseMatrixStack = new PMatrixStack();
+    this.modelView = new PMatrix2D();
+    this.modelViewInv = new PMatrix2D();
     super.size(aWidth, aHeight, aMode);
   }
 
@@ -3651,8 +4118,184 @@ class Drawing2D extends DrawingShared {
       this.curContext.fillRect(0, 0, p.width, p.height);
       this.isFillDirty = true;
     }
+
     this.restoreContext();
   }
+
+  stroke(...colors) {
+    super.stroke(...colors);
+    this.isStrokeDirty = true;
+  }
+
+
+  fill(...colors) {
+    super.fill(...colors);
+    this.isFillDirty = true;
+  }
+
+  /**
+   * Draws a line (a direct path between two points) to the screen. The version of line() with four parameters
+   * draws the line in 2D. To color a line, use the stroke() function. A line cannot be filled, therefore the
+   * fill()  method will not affect the color of a line. 2D lines are drawn with a width of one pixel by default,
+   * but this can be changed with the strokeWeight()  function. The version with six parameters allows the line
+   * to be placed anywhere within XYZ space. Drawing this shape in 3D using the z parameter requires the P3D or
+   * OPENGL parameter in combination with size.
+   *
+   * @param {int|float} x1       x-coordinate of the first point
+   * @param {int|float} y1       y-coordinate of the first point
+   * @param {int|float} z1       z-coordinate of the first point
+   * @param {int|float} x2       x-coordinate of the second point
+   * @param {int|float} y2       y-coordinate of the second point
+   * @param {int|float} z2       z-coordinate of the second point
+   *
+   * @see strokeWeight
+   * @see strokeJoin
+   * @see strokeCap
+   * @see beginShape
+   */
+  line(x1, y1, x2, y2) {
+    if (!this.doStroke) {
+      return;
+    }
+
+    if (!this.renderSmooth) {
+      x1 = Math.round(x1);
+      x2 = Math.round(x2);
+      y1 = Math.round(y1);
+      y2 = Math.round(y2);
+    }
+
+    // A line is only defined if it has different start and end coordinates.
+    // If they are the same, we call point instead.
+    if (x1 === x2 && y1 === y2) {
+      return this.curSketch.point(x1, y1);
+    }
+
+    let context = this.curContext,
+        lineCap = undefined,
+        lineWidth = this.lineWidth,
+        drawCrisp = true,
+        currentModelView = this.modelView.array(),
+        identityMatrix = [1, 0, 0, 0, 1, 0];
+
+    // Test if any transformations have been applied to the sketch
+    for (let i = 0; i < 6 && drawCrisp; i++) {
+      drawCrisp = currentModelView[i] === identityMatrix[i];
+    }
+
+    /* Draw crisp lines if the line is vertical or horizontal with the following method
+     * If any transformations have been applied to the sketch, don't make the line crisp
+     * If the line is directed up or to the left, reverse it by swapping x1/x2 or y1/y2
+     * Make the line 1 pixel longer to work around cross-platform canvas implementations
+     * If the lineWidth is odd, translate the line by 0.5 in the perpendicular direction
+     * Even lineWidths do not need to be translated because the canvas will draw them on pixel boundaries
+     * Change the cap to butt-end to work around cross-platform canvas implementations
+     * Reverse the translate and lineCap canvas state changes after drawing the line
+     */
+    if (drawCrisp) {
+      let swap;
+      if (x1 === x2) {
+        if (y1 > y2) {
+          swap = y1;
+          y1 = y2;
+          y2 = swap;
+        }
+        y2++;
+        if (lineWidth % 2 === 1) {
+          context.translate(0.5, 0.0);
+        }
+      } else if (y1 === y2) {
+        if (x1 > x2) {
+          swap = x1;
+          x1 = x2;
+          x2 = swap;
+        }
+        x2++;
+        if (lineWidth % 2 === 1) {
+          context.translate(0.0, 0.5);
+        }
+      }
+      if (lineWidth === 1) {
+        lineCap = context.lineCap;
+        context.lineCap = 'butt';
+      }
+    }
+
+    context.beginPath();
+    context.moveTo(x1 || 0, y1 || 0);
+    context.lineTo(x2 || 0, y2 || 0);
+    this.executeContextStroke();
+
+    if (drawCrisp) {
+      if (x1 === x2 && lineWidth % 2 === 1) {
+        context.translate(-0.5, 0.0);
+      } else if (y1 === y2 && lineWidth % 2 === 1) {
+        context.translate(0.0, -0.5);
+      }
+      if (lineWidth === 1) {
+        context.lineCap = lineCap;
+      }
+    }
+  }
+
+  /**
+   * Rotates a shape the amount specified by the angle parameter. Angles should be specified in radians
+   * (values from 0 to TWO_PI) or converted to radians with the radians() function. Objects are always
+   * rotated around their relative position to the origin and positive numbers rotate objects in a
+   * clockwise direction. Transformations apply to everything that happens after and subsequent calls
+   * to the function accumulates the effect. For example, calling rotate(HALF_PI) and then rotate(HALF_PI)
+   * is the same as rotate(PI). All tranformations are reset when draw() begins again. Technically,
+   * rotate() multiplies the current transformation matrix by a rotation matrix. This function can be
+   * further controlled by the pushMatrix() and popMatrix().
+   *
+   * @param {int|float} angleInRadians     angle of rotation specified in radians
+   *
+   * @returns none
+   *
+   * @see rotateX
+   * @see rotateY
+   * @see rotateZ
+   * @see rotate
+   * @see translate
+   * @see scale
+   * @see popMatrix
+   * @see pushMatrix
+   */
+  rotate(angleInRadians) {
+    this.modelView.rotateZ(angleInRadians);
+    this.modelViewInv.invRotateZ(angleInRadians);
+    this.curContext.rotate(angleInRadians);
+  }
+
+  /**
+   * Specifies an amount to displace objects within the display window. The x parameter specifies left/right translation,
+   * the y parameter specifies up/down translation, and the z parameter specifies translations toward/away from the screen.
+   * Using this function with the z  parameter requires using the P3D or OPENGL parameter in combination with size as shown
+   * in the above example. Transformations apply to everything that happens after and subsequent calls to the function
+   * accumulates the effect. For example, calling translate(50, 0) and then translate(20, 0) is the same as translate(70, 0).
+   * If translate() is called within draw(), the transformation is reset when the loop begins again.
+   * This function can be further controlled by the pushMatrix() and popMatrix().
+   *
+   * @param {int|float} x        left/right translation
+   * @param {int|float} y        up/down translation
+   * @param {int|float} z        forward/back translation
+   *
+   * @returns none
+   *
+   * @see pushMatrix
+   * @see popMatrix
+   * @see scale
+   * @see rotate
+   * @see rotateX
+   * @see rotateY
+   * @see rotateZ
+  */
+  translate(x, y) {
+    this.modelView.translate(x, y);
+    this.modelViewInv.invTranslate(x, y);
+    this.curContext.translate(x, y);
+  }
+
 }
 
 const BaseValues = {
@@ -5873,13 +6516,14 @@ function colorBindings(p, hooks) {
     let r, g, b, a;
     let context = p.context;
 
-
     if (context.curColorMode === PConstants$1.HSB) {
       var rgb = p.color.toRGB(aValue1, aValue2, aValue3);
       r = rgb[0];
       g = rgb[1];
       b = rgb[2];
-    } else {
+    }
+
+    else {
       r = Math.round(255 * (aValue1 / context.colorModeX));
       g = Math.round(255 * (aValue2 / context.colorModeY));
       b = Math.round(255 * (aValue3 / context.colorModeZ));
@@ -5991,25 +6635,38 @@ function colorBindings(p, hooks) {
 
   // Ease of use function to extract the colour bits into a string
   color.toString = function(colorInt) {
-    return "rgba(" + ((colorInt & PConstants$1.RED_MASK) >>> 16) + "," + ((colorInt & PConstants$1.GREEN_MASK) >>> 8) +
-           "," + ((colorInt & PConstants$1.BLUE_MASK)) + "," + ((colorInt & PConstants$1.ALPHA_MASK) >>> 24) / 255 + ")";
+    let r = ((colorInt & PConstants$1.RED_MASK) >>> 16),
+        g = ((colorInt & PConstants$1.GREEN_MASK) >>> 8),
+        b = ((colorInt & PConstants$1.BLUE_MASK)),
+        a = ((colorInt & PConstants$1.ALPHA_MASK) >>> 24) / 255;
+    return `rgba(${r},${g},${b},${a})`;
   };
 
   // Easy of use function to pack rgba values into a single bit-shifted color int.
   color.toInt = function(r, g, b, a) {
-    return (a << 24) & PConstants$1.ALPHA_MASK | (r << 16) & PConstants$1.RED_MASK | (g << 8) & PConstants$1.GREEN_MASK | b & PConstants$1.BLUE_MASK;
+    a = (a << 24) & PConstants$1.ALPHA_MASK;
+    r = (r << 16) & PConstants$1.RED_MASK;
+    g = (g << 8) & PConstants$1.GREEN_MASK;
+    b = b & PConstants$1.BLUE_MASK;
+    return a|r|g|b;
   };
 
   // Creates a simple array in [R, G, B, A] format, [255, 255, 255, 255]
   color.toArray = function(colorInt) {
-    return [(colorInt & PConstants$1.RED_MASK) >>> 16, (colorInt & PConstants$1.GREEN_MASK) >>> 8,
-            colorInt & PConstants$1.BLUE_MASK, (colorInt & PConstants$1.ALPHA_MASK) >>> 24];
+    let r = (colorInt & PConstants$1.RED_MASK) >>> 16,
+        g = (colorInt & PConstants$1.GREEN_MASK) >>> 8,
+        b = colorInt & PConstants$1.BLUE_MASK,
+        a = (colorInt & PConstants$1.ALPHA_MASK) >>> 24;
+    return [r,g,b,a];
   };
 
   // Creates a WebGL color array in [R, G, B, A] format. WebGL wants the color ranges between 0 and 1, [1, 1, 1, 1]
   color.toGLArray = function(colorInt) {
-    return [((colorInt & PConstants$1.RED_MASK) >>> 16) / 255, ((colorInt & PConstants$1.GREEN_MASK) >>> 8) / 255,
-            (colorInt & PConstants$1.BLUE_MASK) / 255, ((colorInt & PConstants$1.ALPHA_MASK) >>> 24) / 255];
+    let r = ((colorInt & PConstants$1.RED_MASK) >>> 16) / 255,
+        g = ((colorInt & PConstants$1.GREEN_MASK) >>> 8) / 255,
+        b = (colorInt & PConstants$1.BLUE_MASK) / 255,
+        a = ((colorInt & PConstants$1.ALPHA_MASK) >>> 24) / 255;
+    return [r,g,b,a];
   };
 
   // HSB conversion function from Mootools, MIT Licensed
@@ -6033,19 +6690,14 @@ function colorBindings(p, hooks) {
     var p = Math.round((b * (100 - s)) / 10000 * 255);
     var q = Math.round((b * (6000 - s * f)) / 600000 * 255);
     var t = Math.round((b * (6000 - s * (60 - f))) / 600000 * 255);
+
     switch (Math.floor(hue / 60)) {
-    case 0:
-      return [br, t, p];
-    case 1:
-      return [q, br, p];
-    case 2:
-      return [p, br, t];
-    case 3:
-      return [p, q, br];
-    case 4:
-      return [t, p, br];
-    case 5:
-      return [br, p, q];
+      case 0: return [br, t, p];
+      case 1: return [q, br, p];
+      case 2: return [p, br, t];
+      case 3: return [p, q, br];
+      case 4: return [t, p, br];
+      case 5: return [br, p, q];
     }
   };
 
@@ -6082,7 +6734,7 @@ function playBindings(p, hooks) {
   * @see noLoop
   * @see loop
   */
-  function redrawHelper() {
+  p.$redrawHelper = function() {
     let sec = (Date.now() - timeSinceLastFPS) / 1000;
     framesSinceLastFPS++;
     let fps = framesSinceLastFPS / sec;
@@ -6094,7 +6746,7 @@ function playBindings(p, hooks) {
       p.__frameRate = fps;
     }
     p.frameCount++;
-  }
+  };
 
   /**
   * Stops Processing from continuously executing the code within draw(). If loop() is
@@ -6174,25 +6826,6 @@ function playBindings(p, hooks) {
       p.noLoop();
       p.loop();
     }
-  };
-
-  p.redraw = function() {
-    redrawHelper();
-
-    // curContext.lineWidth = lineWidth;
-    // var pmouseXLastEvent = p.pmouseX,
-    //     pmouseYLastEvent = p.pmouseY;
-    // p.pmouseX = pmouseXLastFrame;
-    // p.pmouseY = pmouseYLastFrame;
-
-    // saveContext();
-    p.draw();
-    // restoreContext();
-
-    // pmouseXLastFrame = p.mouseX;
-    // pmouseYLastFrame = p.mouseY;
-    // p.pmouseX = pmouseXLastEvent;
-    // p.pmouseY = pmouseYLastEvent;
   };
 
   // Internal function for kicking off the draw loop

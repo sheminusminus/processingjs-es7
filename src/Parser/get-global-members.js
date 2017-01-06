@@ -3,10 +3,11 @@
  * Processing reference over on https://processing.org/reference
  */
 
-var names = [
+import drawFunctions from "../drawing/drawFunctions";
+
+var names = drawFunctions.concat([
     "abs",
     "acos",
-    "alpha",
     "ambient",
     "ambientLight",
     "append",
@@ -16,7 +17,6 @@ var names = [
     "asin",
     "atan",
     "atan2",
-    "background",
     "beginCamera",
     "beginDraw",
     "beginShape",
@@ -69,7 +69,6 @@ var names = [
     "exp",
     "expand",
     "externals",
-    "fill",
     "filter",
     "floor",
     "focused",
@@ -99,7 +98,6 @@ var names = [
     "lightFalloff",
     "lights",
     "lightSpecular",
-    "line",
     "link",
     "loadBytes",
     "loadFont",
@@ -197,7 +195,6 @@ var names = [
     "requestImage",
     "resetMatrix",
     "reverse",
-    "rotate",
     "rotateX",
     "rotateY",
     "rotateZ",
@@ -221,7 +218,6 @@ var names = [
     "shininess",
     "shorten",
     "sin",
-    "size",
     "smooth",
     "sort",
     "specular",
@@ -235,7 +231,6 @@ var names = [
     "sqrt",
     "status",
     "str",
-    "stroke",
     "strokeCap",
     "strokeJoin",
     "strokeWeight",
@@ -245,7 +240,6 @@ var names = [
     "textAlign",
     "textAscent",
     "textDescent",
-    "textFont",
     "textLeading",
     "textMode",
     "textSize",
@@ -291,7 +285,7 @@ var names = [
     "__startsWith",
     "__endsWith",
     "__matches"
-];
+]);
 
 // // custom functions and properties are added here
 // if(aFunctions) {

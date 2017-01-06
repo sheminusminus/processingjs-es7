@@ -10,16 +10,22 @@
     <h1>Processingjs-ES7 test</h1>
     <div><canvas id="target"></canvas></div>
     <script type="text/processing" id="source">
+      float angle = 0;
+
+      int r = 50;
+
       void setup() {
-        frameRate(1);
+        size(100,100);
+        background(0);
       }
+
       void draw() {
-        console.log(frameCount);
-        if (frameCount === 0) { return background(100); }
-        if (frameCount === 1) { return background(100,100); }
-        if (frameCount === 2) { return background(100,50,150); }
-        if (frameCount === 3) { return background(100,50,150,100); }
-        noLoop();
+        translate(width/2, height/2);
+        rotate(angle++ / 100);
+        translate(-width/2, -height/2);
+        stroke(r,255-r,255);
+        line(0,0,100,100);
+        r = (r+1) % 255;
       }
     </script>
     <script src="processing.js"></script>
@@ -27,8 +33,8 @@
     	let code = document.getElementById('source').textContent;
       let target = document.getElementById('target');
       let hooks = {};
-      let hooknames = ['preSetup','postSetup','preDraw','postDraw','onFrameStart','onFrameEnd','onLoop','onPause'];
-      hooknames.forEach(hook => hooks[hook] = (...e) => console.log(`${hook} ${e}`));
+      //let hooknames = ['preSetup','postSetup','preDraw','postDraw','onFrameStart','onFrameEnd','onLoop','onPause'];
+      //hooknames.forEach(hook => hooks[hook] = (...e) => console.log(`${hook} ${e}`));
       // Let's do this:
     	Processing.parse(code)
     	          .then(ast => Processing.convert(ast))

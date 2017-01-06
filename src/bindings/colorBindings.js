@@ -5,13 +5,14 @@ export default function colorBindings(p, hooks) {
     let r, g, b, a;
     let context = p.context;
 
-
     if (context.curColorMode === PConstants.HSB) {
       var rgb = p.color.toRGB(aValue1, aValue2, aValue3);
       r = rgb[0];
       g = rgb[1];
       b = rgb[2];
-    } else {
+    }
+
+    else {
       r = Math.round(255 * (aValue1 / context.colorModeX));
       g = Math.round(255 * (aValue2 / context.colorModeY));
       b = Math.round(255 * (aValue3 / context.colorModeZ));
@@ -123,25 +124,38 @@ export default function colorBindings(p, hooks) {
 
   // Ease of use function to extract the colour bits into a string
   color.toString = function(colorInt) {
-    return "rgba(" + ((colorInt & PConstants.RED_MASK) >>> 16) + "," + ((colorInt & PConstants.GREEN_MASK) >>> 8) +
-           "," + ((colorInt & PConstants.BLUE_MASK)) + "," + ((colorInt & PConstants.ALPHA_MASK) >>> 24) / 255 + ")";
+    let r = ((colorInt & PConstants.RED_MASK) >>> 16),
+        g = ((colorInt & PConstants.GREEN_MASK) >>> 8),
+        b = ((colorInt & PConstants.BLUE_MASK)),
+        a = ((colorInt & PConstants.ALPHA_MASK) >>> 24) / 255;
+    return `rgba(${r},${g},${b},${a})`;
   };
 
   // Easy of use function to pack rgba values into a single bit-shifted color int.
   color.toInt = function(r, g, b, a) {
-    return (a << 24) & PConstants.ALPHA_MASK | (r << 16) & PConstants.RED_MASK | (g << 8) & PConstants.GREEN_MASK | b & PConstants.BLUE_MASK;
+    a = (a << 24) & PConstants.ALPHA_MASK;
+    r = (r << 16) & PConstants.RED_MASK;
+    g = (g << 8) & PConstants.GREEN_MASK;
+    b = b & PConstants.BLUE_MASK;
+    return a|r|g|b;
   };
 
   // Creates a simple array in [R, G, B, A] format, [255, 255, 255, 255]
   color.toArray = function(colorInt) {
-    return [(colorInt & PConstants.RED_MASK) >>> 16, (colorInt & PConstants.GREEN_MASK) >>> 8,
-            colorInt & PConstants.BLUE_MASK, (colorInt & PConstants.ALPHA_MASK) >>> 24];
+    let r = (colorInt & PConstants.RED_MASK) >>> 16,
+        g = (colorInt & PConstants.GREEN_MASK) >>> 8,
+        b = colorInt & PConstants.BLUE_MASK,
+        a = (colorInt & PConstants.ALPHA_MASK) >>> 24;
+    return [r,g,b,a];
   };
 
   // Creates a WebGL color array in [R, G, B, A] format. WebGL wants the color ranges between 0 and 1, [1, 1, 1, 1]
   color.toGLArray = function(colorInt) {
-    return [((colorInt & PConstants.RED_MASK) >>> 16) / 255, ((colorInt & PConstants.GREEN_MASK) >>> 8) / 255,
-            (colorInt & PConstants.BLUE_MASK) / 255, ((colorInt & PConstants.ALPHA_MASK) >>> 24) / 255];
+    let r = ((colorInt & PConstants.RED_MASK) >>> 16) / 255,
+        g = ((colorInt & PConstants.GREEN_MASK) >>> 8) / 255,
+        b = (colorInt & PConstants.BLUE_MASK) / 255,
+        a = ((colorInt & PConstants.ALPHA_MASK) >>> 24) / 255;
+    return [r,g,b,a];
   };
 
   // HSB conversion function from Mootools, MIT Licensed
@@ -165,19 +179,14 @@ export default function colorBindings(p, hooks) {
     var p = Math.round((b * (100 - s)) / 10000 * 255);
     var q = Math.round((b * (6000 - s * f)) / 600000 * 255);
     var t = Math.round((b * (6000 - s * (60 - f))) / 600000 * 255);
+
     switch (Math.floor(hue / 60)) {
-    case 0:
-      return [br, t, p];
-    case 1:
-      return [q, br, p];
-    case 2:
-      return [p, br, t];
-    case 3:
-      return [p, q, br];
-    case 4:
-      return [t, p, br];
-    case 5:
-      return [br, p, q];
+      case 0: return [br, t, p];
+      case 1: return [q, br, p];
+      case 2: return [p, br, t];
+      case 3: return [p, q, br];
+      case 4: return [t, p, br];
+      case 5: return [br, p, q];
     }
   };
 

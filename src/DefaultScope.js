@@ -1,4 +1,4 @@
-import Drawing2D from "./drawing/Drawing2D";
+import Drawing2D from "./drawing/2d/Drawing2D";
 
 import PConstants from "./PConstants";
 import BaseValues from "./BaseValues";
