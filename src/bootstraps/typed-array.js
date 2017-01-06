@@ -23,9 +23,11 @@ function setupTypedArray(name, fallback) {
   };
 }
 
-export default const {
+const ArrayTypes = {
   Float32Array: setupTypedArray("Float32Array", "WebGLFloatArray"),
   Int32Array  : setupTypedArray("Int32Array",   "WebGLIntArray"),
   Uint16Array : setupTypedArray("Uint16Array",  "WebGLUnsignedShortArray"),
   Uint8Array  : setupTypedArray("Uint8Array",   "WebGLUnsignedByteArray")
 };
+
+export default ArrayTypes;

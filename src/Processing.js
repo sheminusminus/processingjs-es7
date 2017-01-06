@@ -63,7 +63,11 @@ var Processing = {
   injectSketch(sketchSourceCode, target, additionalScopes, hooks) {
     let id = staticSketchList.length;
 
-    staticSketchList[id] = { sketch: undefined, target, hooks };
+    staticSketchList[id] = {
+      sketch: undefined,
+      target,
+      hooks
+    };
 
     let old = document.querySelector(`#processing-sketch-${id}`);
     if (old) { return; }

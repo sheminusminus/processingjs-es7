@@ -6,11 +6,11 @@ import preloading from "./preloading";
  */
 class PFont {
   constructor(name, size) {
-    if (name === undef) {
+    if (name === undefined) {
       name = "";
     }
     this.name = name;
-    if (size === undef) {
+    if (size === undefined) {
       size = 0;
     }
     this.size = size;
@@ -45,7 +45,7 @@ class PFont {
 
     // determine font-family name
     this.family = "sans-serif";
-    if (name !== undef) {
+    if (name !== undefined) {
       switch(name) {
         case "sans-serif":
         case "serif":
@@ -71,10 +71,10 @@ class PFont {
    * This function generates the CSS "font" string for this PFont
    */
   getCSSDefinition(fontSize, lineHeight) {
-    if(fontSize===undef) {
+    if(fontSize === undefined) {
       fontSize = this.size + "px";
     }
-    if(lineHeight===undef) {
+    if(lineHeight === undefined) {
       lineHeight = this.leading + "px";
     }
     // CSS "font" definition: font-style font-variant font-weight font-size/line-height font-family

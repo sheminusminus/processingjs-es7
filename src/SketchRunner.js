@@ -1,5 +1,6 @@
 import noop from "./Parser/noop";
-import playBindings from "./playBindings";
+import colorBindings from "./bindings/colorBindings";
+import playBindings from "./bindings/playBindings";
 
 let emptyhooks = {
   preSetup: noop,
@@ -27,8 +28,13 @@ export default class SketchRunner {
       canvas.height = 100;
       this.target = canvas;
     }
-    this.curElement = this.target.getContext("2d");
-    playBindings(this.sketch, this.curElement, this.hooks);
+
+    // set up Processing API function bindings
+    colorBindings(this.sketch, this.hooks);
+    this.startLooping = playBindings(this.sketch, this.hooks);
+
+    // FIXME: TODO: test size() doing anything at all. REMOVE LATER... possibly
+    this.sketch.__setup_drawing_context(this.target, this.target.getContext("2d"));
   }
 
   /**
@@ -48,8 +54,9 @@ export default class SketchRunner {
 	    this.sketch.draw();
       this.hooks.onFrameEnd();
 	    this.__post_draw();
-	    // and then we either animate or we don't, depending on sketch.noLoop
-      this.sketch.__initial_startup();
+	    // and then we either animate or we don't, depending on whether
+      // the user called sketch.noLoop() before we reach this point.
+      this.startLooping();
 	  }
   }
 

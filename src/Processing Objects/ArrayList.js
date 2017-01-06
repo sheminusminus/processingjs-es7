@@ -7,8 +7,8 @@
  */
 
 
-import virtEquals from "./utils/virtEquals";
-import virtHashCode from "./utils/virtHashCode";
+import virtEquals from "./common/virtEquals";
+import virtHashCode from "./common/virtHashCode";
 import Iterator from "./Iterator";
 import JavaBaseClass from "../JavaBaseClass";
 

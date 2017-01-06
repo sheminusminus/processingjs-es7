@@ -1,6 +1,5 @@
 import JavaBaseClass from "./JavaBaseClass";
-
-var noop = () => {};
+import noop from "./Parser/noop";
 
 var emptyhooks = {
   presetup: noop,

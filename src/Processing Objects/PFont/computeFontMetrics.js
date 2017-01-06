@@ -1,3 +1,5 @@
+import noop from "../../Parser/noop";
+
 /**
 * [internal function] computeFontMetrics() calculates various metrics for text
 * placement. Currently this function computes the ascent, descent and leading

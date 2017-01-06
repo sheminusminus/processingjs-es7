@@ -1,5 +1,5 @@
-import virtEquals from "./Processing Objects/utils/virtEquals";
-import virtHashCode from "./Processing Objects/utils/virtHashCode";
+import virtEquals from "./Processing Objects/common/virtEquals";
+import virtHashCode from "./Processing Objects/common/virtHashCode";
 
 let undef = undefined;
 
@@ -7,6 +7,16 @@ function removeFirstArgument(args) {
 	return Array.from(args).slice(1);
 }
 
+/**
+ * This represents a static class of functions that perform the
+ * role of basic Java functions, but renamed to not conflict
+ * (in normal code) with function in a user's sketch.
+ *
+ * When the parser encounters the normal function, in a scope
+ * that does not have an explicit function by that name in its
+ * lookup table, it will rewrite the call to one of these static
+ * underscored functions, so that the code does what the user expects.
+ */
 export default class JavaProxies {
 
   /**

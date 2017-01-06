@@ -1,28 +1,18 @@
-export default function playBindings(p, curElement, hooks) {
+/**
+ * This function takes a sketch and gives it all its "play"
+ * bindings. This is done using a wrapper function because there
+ * are several shared variables that these Processing calls use
+ * that we do not want to expose through the sketch itself, and
+ * so do NOT want added wholesale to the DefaultScope object.
+ */
+export default function playBindings(p, hooks) {
   let timeSinceLastFPS = 0,
       framesSinceLastFPS = 0,
       doLoop = true,
       loopStarted = false,
       looping = false,
       curFrameRate = 60,
-      curMsPerFrame = 1000 / curFrameRate,
-      sketchStarted = false;
-
-  // FIXME: TODO: should this be imparted here?
-  p.frameCount = 1;
-
-  // Internal function for kicking off the draw loop
-  // for a sketch. Depending on whether a noLoop() was
-  // issued during setup or initial draw, this might
-  // do "nothing", other than record the sketch start.
-  p.__initial_startup = function() {
-    if (sketchStarted) return;
-    if (doLoop) {
-      console.log("kicking off animation");
-      p.loop();
-    }
-    sketchStarted = true;
-  }
+      curMsPerFrame = 1000 / curFrameRate;
 
   /**
   * Executes the code within draw() one time. This functions allows the program to update
@@ -75,9 +65,7 @@ export default function playBindings(p, curElement, hooks) {
     doLoop = false;
     loopStarted = false;
     clearInterval(looping);
-    // Don't signal a "pause" unless the sketch is running,
-    // which will not be the case at sketch-startup.
-    if (sketchStarted) { hooks.onPause(); }
+    hooks.onPause();
   };
 
   /**
@@ -108,9 +96,7 @@ export default function playBindings(p, curElement, hooks) {
     }, curMsPerFrame);
     doLoop = true;
     loopStarted = true;
-    // Don't signal a "loop start" unless the sketch was first
-    // paused, which will not be the case at sketch-startup.
-    if (sketchStarted) { hooks.onLoop(); }
+    hooks.onLoop();
   };
 
   /**
@@ -154,4 +140,15 @@ export default function playBindings(p, curElement, hooks) {
     // p.pmouseX = pmouseXLastEvent;
     // p.pmouseY = pmouseYLastEvent;
   };
+
+  // Internal function for kicking off the draw loop
+  // for a sketch. Depending on whether a noLoop() was
+  // issued during setup or initial draw, this might
+  // do "nothing", other than record the sketch start.
+  return function() {
+    if (doLoop) {
+      console.log("kicking off animation");
+      p.loop();
+    }
+  }
 };

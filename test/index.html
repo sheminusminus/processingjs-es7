@@ -3,55 +3,33 @@
   <head>
   	<meta charset="utf-8">
   	<title>Processingjs-ES7 test</title>
+    <style> div { padding: 1em; background: grey; }
+    </style>
   </head>
   <body>
     <h1>Processingjs-ES7 test</h1>
-    <script src="processing.js"></script>
-
-    <script>
-    let TestAPI = {
-      getData() {
-        return ['a','b','c','d','e'];
-      }
-    }
-    </script>
-
+    <div><canvas id="target"></canvas></div>
     <script type="text/processing" id="source">
       void setup() {
-        frameRate(10);
+        frameRate(1);
       }
-
       void draw() {
         console.log(frameCount);
-        if (frameCount >= 10) {
-          noLoop();
-        }
+        if (frameCount === 0) { return background(100); }
+        if (frameCount === 1) { return background(100,100); }
+        if (frameCount === 2) { return background(100,50,150); }
+        if (frameCount === 3) { return background(100,50,150,100); }
+        noLoop();
       }
     </script>
-
-    <canvas id="target">
-      It would appear your browser does not support the &lt;canvas&gt; element.
-    </canvas>
-
+    <script src="processing.js"></script>
     <script>
     	let code = document.getElementById('source').textContent;
-
       let target = document.getElementById('target');
-
-      let hooks = {
-        // setup hooks
-        preSetup: (...e) => console.log(`preSetup ${e}`),
-        postSetup: (...e) => console.log(`postSetup ${e}`),
-        // draw hooks
-        preDraw: (...e) => console.log(`preDraw ${e}`),
-        postDraw: (...e) => console.log(`postDraw ${e}`),
-        // play hooks
-        onFrameStart: (...e) => console.log(`onFrameStart ${e}`),
-        onFrameEnd: (...e) => console.log(`onFrameEnd ${e}`),
-        onLoop: (...e) => console.log(`onLoop ${e}`),
-        onPause: (...e) => console.log(`onPause ${e}`)
-      };
-
+      let hooks = {};
+      let hooknames = ['preSetup','postSetup','preDraw','postDraw','onFrameStart','onFrameEnd','onLoop','onPause'];
+      hooknames.forEach(hook => hooks[hook] = (...e) => console.log(`${hook} ${e}`));
+      // Let's do this:
     	Processing.parse(code)
     	          .then(ast => Processing.convert(ast))
     	          .then(res => Processing.injectSketch(res, target, {}, hooks))

@@ -2125,7 +2125,7 @@ for (i = 0, l = names.length; i < l ; ++i) {
 /**
  * Processing.js environment constants
  */
-const PConstants = {
+const PConstants$1 = {
     X: 0,
     Y: 1,
     Z: 2,
@@ -2424,6 +2424,1294 @@ const PConstants = {
     NORMAL_MODE_SHAPE:  1,
     NORMAL_MODE_VERTEX: 2,
     MAX_LIGHTS:         8
+};
+
+/**
+* Datatype for storing images. Processing can display .gif, .jpg, .tga, and .png images. Images may be
+* displayed in 2D and 3D space. Before an image is used, it must be loaded with the loadImage() function.
+* The PImage object contains fields for the width and height of the image, as well as an array called
+* pixels[]  which contains the values for every pixel in the image. A group of methods, described below,
+* allow easy access to the image's pixels and alpha channel and simplify the process of compositing.
+* Before using the pixels[] array, be sure to use the loadPixels() method on the image to make sure that the
+* pixel data is properly loaded. To create a new image, use the createImage() function (do not use new PImage()).
+*
+* @param {int} width                image width
+* @param {int} height               image height
+* @param {MODE} format              Either RGB, ARGB, ALPHA (grayscale alpha channel)
+*
+* @returns {PImage}
+*
+* @see loadImage
+* @see imageMode
+* @see createImage
+*/
+class PImage {
+  constructor(p, aWidth, aHeight, aFormat) {
+    this.p = p;
+
+    // Keep track of whether or not the cached imageData has been touched.
+    this.__isDirty = false;
+
+    if (aWidth instanceof HTMLImageElement) {
+      // convert an <img> to a PImage
+      this.fromHTMLImageData(aWidth);
+    } else if (aHeight || aFormat) {
+      this.width = aWidth || 1;
+      this.height = aHeight || 1;
+
+      // Stuff a canvas into sourceImg so image() calls can use drawImage like an <img>
+      var canvas = this.sourceImg = document.createElement("canvas");
+      canvas.width = this.width;
+      canvas.height = this.height;
+
+      var imageData = this.imageData = canvas.getContext('2d').createImageData(this.width, this.height);
+      this.format = (aFormat === PConstants.ARGB || aFormat === PConstants.ALPHA) ? aFormat : PConstants.RGB;
+      if (this.format === PConstants.RGB) {
+        // Set the alpha channel of an RGB image to opaque.
+        for (var i = 3, data = this.imageData.data, len = data.length; i < len; i += 4) {
+          data[i] = 255;
+        }
+      }
+
+      this.__isDirty = true;
+      this.updatePixels();
+    } else {
+      this.width = 0;
+      this.height = 0;
+      this.imageData = utilityContext2d.createImageData(1, 1);
+      this.format = PConstants.ARGB;
+    }
+
+    this.pixels = buildPixelsObject(this);
+    this.__isPImage = true;
+  }
+
+  /**
+  * @member PImage
+  * Updates the image with the data in its pixels[] array. Use in conjunction with loadPixels(). If
+  * you're only reading pixels from the array, there's no need to call updatePixels().
+  * Certain renderers may or may not seem to require loadPixels() or updatePixels(). However, the rule
+  * is that any time you want to manipulate the pixels[] array, you must first call loadPixels(), and
+  * after changes have been made, call updatePixels(). Even if the renderer may not seem to use this
+  * function in the current Processing release, this will always be subject to change.
+  * Currently, none of the renderers use the additional parameters to updatePixels().
+  */
+  updatePixels() {
+    var canvas = this.sourceImg;
+    if (canvas && canvas instanceof HTMLCanvasElement && this.__isDirty) {
+      canvas.getContext('2d').putImageData(this.imageData, 0, 0);
+    }
+    this.__isDirty = false;
+  }
+
+  fromHTMLImageData(htmlImg) {
+    // convert an <img> to a PImage
+    var canvasData = getCanvasData(htmlImg);
+    try {
+      var imageData = canvasData.context.getImageData(0, 0, htmlImg.width, htmlImg.height);
+      this.fromImageData(imageData);
+    } catch(e) {
+      if (htmlImg.width && htmlImg.height) {
+        this.isRemote = true;
+        this.width = htmlImg.width;
+        this.height = htmlImg.height;
+      }
+    }
+    this.sourceImg = htmlImg;
+  }
+
+  get(x, y, w, h) {
+    if (!arguments.length) {
+      return this.p.get(this);
+    }
+    if (arguments.length === 2) {
+      return this.p.get(x, y, this);
+    }
+    if (arguments.length === 4) {
+      return this.p.get(x, y, w, h, this);
+    }
+  }
+
+  /**
+  * @member PImage
+  * Changes the color of any pixel or writes an image directly into the image. The x and y parameter
+  * specify the pixel or the upper-left corner of the image. The color parameter specifies the color value.
+  * Setting the color of a single pixel with set(x, y) is easy, but not as fast as putting the data
+  * directly into pixels[]. The equivalent statement to "set(x, y, #000000)" using pixels[] is
+  * "pixels[y*width+x] = #000000". Processing requires calling loadPixels() to load the display window
+  * data into the pixels[] array before getting the values and calling updatePixels() to update the window.
+  *
+  * @param {int} x        x-coordinate of the pixel or upper-left corner of the image
+  * @param {int} y        y-coordinate of the pixel or upper-left corner of the image
+  * @param {color} color  any value of the color datatype
+  *
+  * @see get
+  * @see pixels[]
+  * @see copy
+  */
+  set(x, y, c) {
+    this.p.set(x, y, c, this);
+    this.__isDirty = true;
+  }
+
+  /**
+  * @member PImage
+  * Blends a region of pixels into the image specified by the img parameter. These copies utilize full
+  * alpha channel support and a choice of the following modes to blend the colors of source pixels (A)
+  * with the ones of pixels in the destination image (B):
+  * BLEND - linear interpolation of colours: C = A*factor + B
+  * ADD - additive blending with white clip: C = min(A*factor + B, 255)
+  * SUBTRACT - subtractive blending with black clip: C = max(B - A*factor, 0)
+  * DARKEST - only the darkest colour succeeds: C = min(A*factor, B)
+  * LIGHTEST - only the lightest colour succeeds: C = max(A*factor, B)
+  * DIFFERENCE - subtract colors from underlying image.
+  * EXCLUSION - similar to DIFFERENCE, but less extreme.
+  * MULTIPLY - Multiply the colors, result will always be darker.
+  * SCREEN - Opposite multiply, uses inverse values of the colors.
+  * OVERLAY - A mix of MULTIPLY and SCREEN. Multiplies dark values, and screens light values.
+  * HARD_LIGHT - SCREEN when greater than 50% gray, MULTIPLY when lower.
+  * SOFT_LIGHT - Mix of DARKEST and LIGHTEST. Works like OVERLAY, but not as harsh.
+  * DODGE - Lightens light tones and increases contrast, ignores darks. Called "Color Dodge" in Illustrator and Photoshop.
+  * BURN - Darker areas are applied, increasing contrast, ignores lights. Called "Color Burn" in Illustrator and Photoshop.
+  * All modes use the alpha information (highest byte) of source image pixels as the blending factor.
+  * If the source and destination regions are different sizes, the image will be automatically resized to
+  * match the destination size. If the srcImg parameter is not used, the display window is used as the source image.
+  * This function ignores imageMode().
+  *
+  * @param {int} x              X coordinate of the source's upper left corner
+  * @param {int} y              Y coordinate of the source's upper left corner
+  * @param {int} width          source image width
+  * @param {int} height         source image height
+  * @param {int} dx             X coordinate of the destinations's upper left corner
+  * @param {int} dy             Y coordinate of the destinations's upper left corner
+  * @param {int} dwidth         destination image width
+  * @param {int} dheight        destination image height
+  * @param {PImage} srcImg      an image variable referring to the source image
+  * @param {MODE} MODE          Either BLEND, ADD, SUBTRACT, LIGHTEST, DARKEST, DIFFERENCE, EXCLUSION,
+  * MULTIPLY, SCREEN, OVERLAY, HARD_LIGHT, SOFT_LIGHT, DODGE, BURN
+  *
+  * @see alpha
+  * @see copy
+  */
+  blend(srcImg, x, y, width, height, dx, dy, dwidth, dheight, MODE) {
+    if (arguments.length === 9) {
+      this.p.blend(this, srcImg, x, y, width, height, dx, dy, dwidth, dheight, this);
+    } else if (arguments.length === 10) {
+      this.p.blend(srcImg, x, y, width, height, dx, dy, dwidth, dheight, MODE, this);
+    }
+    delete this.sourceImg;
+  }
+
+  /**
+  * @member PImage
+  * Copies a region of pixels from one image into another. If the source and destination regions
+  * aren't the same size, it will automatically resize source pixels to fit the specified target region.
+  * No alpha information is used in the process, however if the source image has an alpha channel set,
+  * it will be copied as well. This function ignores imageMode().
+  *
+  * @param {int} sx             X coordinate of the source's upper left corner
+  * @param {int} sy             Y coordinate of the source's upper left corner
+  * @param {int} swidth         source image width
+  * @param {int} sheight        source image height
+  * @param {int} dx             X coordinate of the destinations's upper left corner
+  * @param {int} dy             Y coordinate of the destinations's upper left corner
+  * @param {int} dwidth         destination image width
+  * @param {int} dheight        destination image height
+  * @param {PImage} srcImg      an image variable referring to the source image
+  *
+  * @see alpha
+  * @see blend
+  */
+  copy(srcImg, sx, sy, swidth, sheight, dx, dy, dwidth, dheight) {
+    if (arguments.length === 8) {
+      this.p.blend(this, srcImg, sx, sy, swidth, sheight, dx, dy, dwidth, PConstants.REPLACE, this);
+    } else if (arguments.length === 9) {
+      this.p.blend(srcImg, sx, sy, swidth, sheight, dx, dy, dwidth, dheight, PConstants.REPLACE, this);
+    }
+    delete this.sourceImg;
+  }
+
+  /**
+  * @member PImage
+  * Filters an image as defined by one of the following modes:
+  * THRESHOLD - converts the image to black and white pixels depending if they are above or below
+  * the threshold defined by the level parameter. The level must be between 0.0 (black) and 1.0(white).
+  * If no level is specified, 0.5 is used.
+  * GRAY - converts any colors in the image to grayscale equivalents
+  * INVERT - sets each pixel to its inverse value
+  * POSTERIZE - limits each channel of the image to the number of colors specified as the level parameter
+  * BLUR - executes a Guassian blur with the level parameter specifying the extent of the blurring.
+  * If no level parameter is used, the blur is equivalent to Guassian blur of radius 1.
+  * OPAQUE - sets the alpha channel to entirely opaque.
+  * ERODE - reduces the light areas with the amount defined by the level parameter.
+  * DILATE - increases the light areas with the amount defined by the level parameter
+  *
+  * @param {MODE} MODE        Either THRESHOLD, GRAY, INVERT, POSTERIZE, BLUR, OPAQUE, ERODE, or DILATE
+  * @param {int|float} param  in the range from 0 to 1
+  */
+  filter(mode, param) {
+    if (arguments.length === 2) {
+      this.p.filter(mode, param, this);
+    } else if (arguments.length === 1) {
+      // no param specified, send null to show its invalid
+      this.p.filter(mode, null, this);
+    }
+    delete this.sourceImg;
+  }
+
+  /**
+  * @member PImage
+  * Saves the image into a file. Images are saved in TIFF, TARGA, JPEG, and PNG format depending on
+  * the extension within the filename  parameter. For example, "image.tif" will have a TIFF image and
+  * "image.png" will save a PNG image. If no extension is included in the filename, the image will save
+  * in TIFF format and .tif will be added to the name. These files are saved to the sketch's folder,
+  * which may be opened by selecting "Show sketch folder" from the "Sketch" menu. It is not possible to
+  * use save() while running the program in a web browser.
+  * To save an image created within the code, rather than through loading, it's necessary to make the
+  * image with the createImage() function so it is aware of the location of the program and can therefore
+  * save the file to the right place. See the createImage() reference for more information.
+  *
+  * @param {String} filename        a sequence of letters and numbers
+  */
+  save(file) {
+    this.p.save(file,this);
+  }
+
+  /**
+  * @member PImage
+  * Resize the image to a new width and height. To make the image scale proportionally, use 0 as the
+  * value for the wide or high parameter.
+  *
+  * @param {int} wide         the resized image width
+  * @param {int} high         the resized image height
+  *
+  * @see get
+  */
+  resize(w, h) {
+    if (this.isRemote) { // Remote images cannot access imageData
+      throw "Image is loaded remotely. Cannot resize.";
+    }
+    if (this.width !== 0 || this.height !== 0) {
+      // make aspect ratio if w or h is 0
+      if (w === 0 && h !== 0) {
+        w = Math.floor(this.width / this.height * h);
+      } else if (h === 0 && w !== 0) {
+        h = Math.floor(this.height / this.width * w);
+      }
+      // put 'this.imageData' into a new canvas
+      var canvas = getCanvasData(this.imageData).canvas;
+      // pull imageData object out of canvas into ImageData object
+      var imageData = getCanvasData(canvas, w, h).context.getImageData(0, 0, w, h);
+      // set this as new pimage
+      this.fromImageData(imageData);
+    }
+  }
+
+  /**
+  * @member PImage
+  * Masks part of an image from displaying by loading another image and using it as an alpha channel.
+  * This mask image should only contain grayscale data, but only the blue color channel is used. The
+  * mask image needs to be the same size as the image to which it is applied.
+  * In addition to using a mask image, an integer array containing the alpha channel data can be
+  * specified directly. This method is useful for creating dynamically generated alpha masks. This
+  * array must be of the same length as the target image's pixels array and should contain only grayscale
+  * data of values between 0-255.
+  *
+  * @param {PImage} maskImg         any PImage object used as the alpha channel for "img", needs to be same
+  *                                 size as "img"
+  * @param {int[]} maskArray        any array of Integer numbers used as the alpha channel, needs to be same
+  *                                 length as the image's pixel array
+  */
+  mask(mask) {
+    var obj = this.toImageData(),
+        i,
+        size;
+
+    if (mask instanceof PImage || mask.__isPImage) {
+      if (mask.width === this.width && mask.height === this.height) {
+        mask = mask.toImageData();
+
+        for (i = 2, size = this.width * this.height * 4; i < size; i += 4) {
+          // using it as an alpha channel
+          obj.data[i + 1] = mask.data[i];
+          // but only the blue color channel
+        }
+      } else {
+        throw "mask must have the same dimensions as PImage.";
+      }
+    } else if (mask instanceof Array) {
+      if (this.width * this.height === mask.length) {
+        for (i = 0, size = mask.length; i < size; ++i) {
+          obj.data[i * 4 + 3] = mask[i];
+        }
+      } else {
+        throw "mask array must be the same length as PImage pixels array.";
+      }
+    }
+
+    this.fromImageData(obj);
+  }
+
+  // These are intentionally left blank for PImages, we work live with pixels and draw as necessary
+  /**
+  * @member PImage
+  * Loads the pixel data for the image into its pixels[] array. This function must always be called
+  * before reading from or writing to pixels[].
+  * Certain renderers may or may not seem to require loadPixels() or updatePixels(). However, the
+  * rule is that any time you want to manipulate the pixels[] array, you must first call loadPixels(),
+  * and after changes have been made, call updatePixels(). Even if the renderer may not seem to use
+  * this function in the current Processing release, this will always be subject to change.
+  */
+  loadPixels() {
+    // noop
+  }
+
+  toImageData() {
+    if (this.isRemote) {
+      return this.sourceImg;
+    }
+
+    if (!this.__isDirty) {
+      return this.imageData;
+    }
+
+    var canvasData = getCanvasData(this.sourceImg);
+    return canvasData.context.getImageData(0, 0, this.width, this.height);
+  }
+
+  toDataURL() {
+    if (this.isRemote) { // Remote images cannot access imageData
+      throw "Image is loaded remotely. Cannot create dataURI.";
+    }
+    var canvasData = getCanvasData(this.imageData);
+    return canvasData.canvas.toDataURL();
+  }
+
+  fromImageData(canvasImg) {
+    var w = canvasImg.width,
+      h = canvasImg.height,
+      canvas = document.createElement('canvas'),
+      ctx = canvas.getContext('2d');
+
+    this.width = canvas.width = w;
+    this.height = canvas.height = h;
+
+    ctx.putImageData(canvasImg, 0, 0);
+
+    // changed for 0.9
+    this.format = PConstants.ARGB;
+
+    this.imageData = canvasImg;
+    this.sourceImg = canvas;
+  }
+}
+
+function noop() {}
+
+/**
+* [internal function] computeFontMetrics() calculates various metrics for text
+* placement. Currently this function computes the ascent, descent and leading
+* (from "lead", used for vertical space) values for the currently active font.
+*/
+function computeFontMetrics(pfont) {
+  var emQuad = 250,
+      correctionFactor = pfont.size / emQuad,
+      canvas = document.createElement("canvas");
+  canvas.width = 2*emQuad;
+  canvas.height = 2*emQuad;
+  canvas.style.opacity = 0;
+  var cfmFont = pfont.getCSSDefinition(emQuad+"px", "normal"),
+      ctx = canvas.getContext("2d");
+  ctx.font = cfmFont;
+
+  // Size the canvas using a string with common max-ascent and max-descent letters.
+  // Changing the canvas dimensions resets the context, so we must reset the font.
+  var protrusions = "dbflkhyjqpg";
+  canvas.width = ctx.measureText(protrusions).width;
+  ctx.font = cfmFont;
+
+  // for text lead values, we meaure a multiline text container.
+  var leadDiv = document.createElement("div");
+  leadDiv.style.position = "absolute";
+  leadDiv.style.opacity = 0;
+  leadDiv.style.fontFamily = '"' + pfont.name + '"';
+  leadDiv.style.fontSize = emQuad + "px";
+  leadDiv.innerHTML = protrusions + "<br/>" + protrusions;
+  document.body.appendChild(leadDiv);
+
+  var w = canvas.width,
+      h = canvas.height,
+      baseline = h/2;
+
+  // Set all canvas pixeldata values to 255, with all the content
+  // data being 0. This lets us scan for data[i] != 255.
+  ctx.fillStyle = "white";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "black";
+  ctx.fillText(protrusions, 0, baseline);
+  var pixelData = ctx.getImageData(0, 0, w, h).data;
+
+  // canvas pixel data is w*4 by h*4, because R, G, B and A are separate,
+  // consecutive values in the array, rather than stored as 32 bit ints.
+  var i = 0,
+      w4 = w * 4,
+      len = pixelData.length;
+
+  // Finding the ascent uses a normal, forward scanline
+  while (++i < len && pixelData[i] === 255) {
+    noop();
+  }
+  var ascent = Math.round(i / w4);
+
+  // Finding the descent uses a reverse scanline
+  i = len - 1;
+  while (--i > 0 && pixelData[i] === 255) {
+    noop();
+  }
+  var descent = Math.round(i / w4);
+
+  // set font metrics
+  pfont.ascent = correctionFactor * (baseline - ascent);
+  pfont.descent = correctionFactor * (descent - baseline);
+
+  // Then we try to get the real value from the browser
+  if (document.defaultView.getComputedStyle) {
+    var leadDivHeight = document.defaultView.getComputedStyle(leadDiv,null).getPropertyValue("height");
+    leadDivHeight = correctionFactor * leadDivHeight.replace("px","");
+    if (leadDivHeight >= pfont.size * 2) {
+      pfont.leading = Math.round(leadDivHeight/2);
+    }
+  }
+  document.body.removeChild(leadDiv);
+
+  // if we're caching, cache the context used for this pfont
+  if (pfont.caching) {
+    return ctx;
+  }
+}
+
+const preloading = {
+  // template element used to compare font sizes
+  template: {},
+
+  // indicates whether or not the reference tiny font has been loaded
+  initialized: false,
+
+  // load the reference tiny font via a css @font-face rule
+  initialize: function() {
+    let generateTinyFont = function() {
+      let encoded = "#E3KAI2wAgT1MvMg7Eo3VmNtYX7ABi3CxnbHlm" +
+                    "7Abw3kaGVhZ7ACs3OGhoZWE7A53CRobXR47AY3" +
+                    "AGbG9jYQ7G03Bm1heH7ABC3CBuYW1l7Ae3AgcG" +
+                    "9zd7AI3AE#B3AQ2kgTY18PPPUACwAg3ALSRoo3" +
+                    "#yld0xg32QAB77#E777773B#E3C#I#Q77773E#" +
+                    "Q7777777772CMAIw7AB77732B#M#Q3wAB#g3B#" +
+                    "E#E2BB//82BB////w#B7#gAEg3E77x2B32B#E#" +
+                    "Q#MTcBAQ32gAe#M#QQJ#E32M#QQJ#I#g32Q77#";
+      let expand = function(input) {
+                     return "AAAAAAAA".substr(~~input ? 7-input : 6);
+                   };
+      return encoded.replace(/[#237]/g, expand);
+    };
+    let fontface = document.createElement("style");
+    fontface.setAttribute("type","text/css");
+    fontface.innerHTML =  "@font-face {\n" +
+                          '  font-family: "PjsEmptyFont";' + "\n" +
+                          "  src: url('data:application/x-font-ttf;base64,"+generateTinyFont()+"')\n" +
+                          "       format('truetype');\n" +
+                          "}";
+    document.head.appendChild(fontface);
+
+    // set up the template element
+    let element = document.createElement("span");
+    element.style.cssText = 'position: absolute; top: -1000; left: 0; opacity: 0; font-family: "PjsEmptyFont", fantasy;';
+    element.innerHTML = "AAAAAAAA";
+    document.body.appendChild(element);
+    this.template = element;
+
+    this.initialized = true;
+  },
+
+  // Shorthand function to get the computed width for an element.
+  getElementWidth: function(element) {
+    return document.defaultView.getComputedStyle(element,"").getPropertyValue("width");
+  },
+
+  // time taken so far in attempting to load a font
+  timeAttempted: 0,
+
+  // returns false if no fonts are pending load, or true otherwise.
+  pending: function(intervallength) {
+    if (!this.initialized) {
+      this.initialize();
+    }
+    let element,
+        computedWidthFont,
+        computedWidthRef = this.getElementWidth(this.template);
+    for (let i = 0; i < this.fontList.length; i++) {
+      // compares size of text in pixels. if equal, custom font is not yet loaded
+      element = this.fontList[i];
+      computedWidthFont = this.getElementWidth(element);
+      if (this.timeAttempted < 4000 && computedWidthFont === computedWidthRef) {
+        this.timeAttempted += intervallength;
+        return true;
+      } else {
+        document.body.removeChild(element);
+        this.fontList.splice(i--, 1);
+        this.timeAttempted = 0;
+      }
+    }
+    // if there are no more fonts to load, pending is false
+    if (this.fontList.length === 0) {
+      return false;
+    }
+    // We should have already returned before getting here.
+    // But, if we do get here, length!=0 so fonts are pending.
+    return true;
+  },
+
+  // fontList contains elements to compare font sizes against a template
+  fontList: [],
+
+  // addedList contains the fontnames of all the fonts loaded via @font-face
+  addedList: {},
+
+  // adds a font to the font cache
+  // creates an element using the font, to start loading the font,
+  // and compare against a default font to see if the custom font is loaded
+  add: function(fontSrc) {
+    if (!this.initialized) {
+     this.initialize();
+    }
+
+    // fontSrc can be a string or a javascript object
+    // acceptable fonts are .ttf, .otf, and data uri
+    let fontName = (typeof fontSrc === 'object' ? fontSrc.fontFace : fontSrc),
+        fontUrl = (typeof fontSrc === 'object' ? fontSrc.url : fontSrc);
+
+    // check whether we already created the @font-face rule for this font
+    if (this.addedList[fontName]) {
+      return;
+    }
+
+    // if we didn't, create the @font-face rule
+    let style = document.createElement("style");
+    style.setAttribute("type","text/css");
+    style.innerHTML = "@font-face{\n  font-family: '" + fontName + "';\n  src:  url('" + fontUrl + "');\n}\n";
+    document.head.appendChild(style);
+    this.addedList[fontName] = true;
+
+    // also create the element to load and compare the new font
+    let element = document.createElement("span");
+    element.style.cssText = "position: absolute; top: 0; left: 0; opacity: 0;";
+    element.style.fontFamily = '"' + fontName + '", "PjsEmptyFont", fantasy';
+    element.innerHTML = "AAAAAAAA";
+    document.body.appendChild(element);
+    this.fontList.push(element);
+  }
+};
+
+/**
+ * Constructor for a system or from-file (non-SVG) font.
+ */
+class PFont {
+  constructor(name, size) {
+    if (name === undefined) {
+      name = "";
+    }
+    this.name = name;
+    if (size === undefined) {
+      size = 0;
+    }
+    this.size = size;
+    this.glyph = false;
+    this.ascent = 0;
+    this.descent = 0;
+    // For leading, the "safe" value uses the standard TEX ratio of 1.2 em
+    this.leading = 1.2 * size;
+
+    // Note that an italic, bold font must used "... Bold Italic"
+    // in P5. "... Italic Bold" is treated as normal/normal.
+    let illegalIndicator = name.indexOf(" Italic Bold");
+    if (illegalIndicator !== -1) {
+      name = name.substring(0, illegalIndicator);
+    }
+
+    // determine font style
+    this.style = "normal";
+    let italicsIndicator = name.indexOf(" Italic");
+    if (italicsIndicator !== -1) {
+      name = name.substring(0, italicsIndicator);
+      this.style = "italic";
+    }
+
+    // determine font weight
+    this.weight = "normal";
+    let boldIndicator = name.indexOf(" Bold");
+    if (boldIndicator !== -1) {
+      name = name.substring(0, boldIndicator);
+      this.weight = "bold";
+    }
+
+    // determine font-family name
+    this.family = "sans-serif";
+    if (name !== undefined) {
+      switch(name) {
+        case "sans-serif":
+        case "serif":
+        case "monospace":
+        case "fantasy":
+        case "cursive":
+          this.family = name;
+          break;
+        default:
+          this.family = '"' + name + '", sans-serif';
+          break;
+      }
+    }
+    // Calculate the ascent/descent/leading value based on how the browser renders this font.
+    this.context2d = computeFontMetrics(this);
+    this.css = this.getCSSDefinition();
+    if (this.context2d) {
+      this.context2d.font = this.css;
+    }
+  }
+
+  /**
+   * This function generates the CSS "font" string for this PFont
+   */
+  getCSSDefinition(fontSize, lineHeight) {
+    if(fontSize === undefined) {
+      fontSize = this.size + "px";
+    }
+    if(lineHeight === undefined) {
+      lineHeight = this.leading + "px";
+    }
+    // CSS "font" definition: font-style font-variant font-weight font-size/line-height font-family
+    let components = [this.style, "normal", this.weight, fontSize + "/" + lineHeight, this.family];
+    return components.join(" ");
+  }
+
+  /**
+   * Rely on the cached context2d measureText function.
+   */
+  measureTextWidth(string) {
+    return this.context2d.measureText(string).width;
+  }
+
+  /**
+   * FALLBACK FUNCTION -- replaces Pfont.prototype.measureTextWidth
+   * when the font cache becomes too large. This contructs a new
+   * canvas 2d context object for calling measureText on.
+   */
+  measureTextWidthFallback(string) {
+    let canvas = document.createElement("canvas"),
+        ctx = canvas.getContext("2d");
+    ctx.font = this.css;
+    return ctx.measureText(string).width;
+  }
+}
+
+
+/**
+ * Global "loaded fonts" list, internal to PFont
+ */
+PFont.PFontCache = { length: 0 };
+
+/**
+ * This function acts as single access point for getting and caching
+ * fonts across all sketches handled by an instance of Processing.js
+ */
+PFont.get = function(fontName, fontSize) {
+  // round fontSize to one decimal point
+  fontSize = ((fontSize*10)+0.5|0)/10;
+  let cache = PFont.PFontCache,
+      idx = fontName+"/"+fontSize;
+  if (!cache[idx]) {
+    cache[idx] = new PFont(fontName, fontSize);
+    cache.length++;
+
+    // FALLBACK FUNCTIONALITY 1:
+    // If the cache has become large, switch over from full caching
+    // to caching only the static metrics for each new font request.
+    if (cache.length === 50) {
+      PFont.prototype.measureTextWidth = PFont.prototype.measureTextWidthFallback;
+      PFont.prototype.caching = false;
+      // clear contexts stored for each cached font
+      let entry;
+      for (entry in cache) {
+        if (entry !== "length") {
+          cache[entry].context2d = null;
+        }
+      }
+      return new PFont(fontName, fontSize);
+    }
+
+    // FALLBACK FUNCTIONALITY 2:
+    // If the cache has become too large, switch off font caching entirely.
+    if (cache.length === 400) {
+      PFont.PFontCache = {};
+      PFont.get = PFont.getFallback;
+      return new PFont(fontName, fontSize);
+    }
+  }
+  return cache[idx];
+};
+
+/**
+ * regulates whether or not we're caching the canvas
+ * 2d context for quick text width computation.
+ */
+PFont.caching = true;
+
+/**
+ * FALLBACK FUNCTION -- replaces PFont.get when the font cache
+ * becomes too large. This function bypasses font caching entirely.
+ */
+PFont.getFallback = function(fontName, fontSize) {
+  return new PFont(fontName, fontSize);
+};
+
+/**
+ * Lists all standard fonts. Due to browser limitations, this list is
+ * not the system font list, like in P5, but the CSS "genre" list.
+ */
+PFont.list = function() {
+  return ["sans-serif", "serif", "monospace", "fantasy", "cursive"];
+};
+
+/**
+ * Loading external fonts through @font-face rules is handled by PFont,
+ * to ensure fonts loaded in this way are globally available.
+ */
+PFont.preloading = preloading;
+
+class DrawingShared {
+  constructor(sketch, canvas, context) {
+    this.curSketch = sketch;
+    this.curElement = canvas;
+    this.curContext = context;
+
+    this.drawing, // hold a Drawing2D or Drawing3D object
+    this.doFill = true;
+    this.fillStyle = [1.0, 1.0, 1.0, 1.0];
+    this.currentFillColor = 0xFFFFFFFF;
+    this.isFillDirty = true;
+    this.doStroke = true;
+    this.strokeStyle = [0.0, 0.0, 0.0, 1.0];
+    this.currentStrokeColor = 0xFF000000;
+    this.isStrokeDirty = true;
+    this.lineWidth = 1;
+    this.loopStarted = false;
+    this.renderSmooth = false;
+    this.doLoop = true;
+    this.looping = 0;
+    this.curRectMode = PConstants$1.CORNER;
+    this.curEllipseMode = PConstants$1.CENTER;
+    this.normalX = 0;
+    this.normalY = 0;
+    this.normalZ = 0;
+    this.normalMode = PConstants$1.NORMAL_MODE_AUTO;
+    this.curFrameRate = 60;
+    this.curMsPerFrame = 1000/this.curFrameRate;
+    this.curCursor = PConstants$1.ARROW;
+    this.oldCursor = this.curElement.style.cursor;
+    this.curShape = PConstants$1.POLYGON;
+    this.curShapeCount = 0;
+    this.curvePoints = [];
+    this.curTightness = 0;
+    this.curveDet = 20;
+    this.curveInited = false;
+    this.backgroundObj = -3355444, // rgb(204, 204, 204) is the default gray background colour
+    this.bezDetail = 20;
+    this.colorModeA = 255;
+    this.colorModeX = 255;
+    this.colorModeY = 255;
+    this.colorModeZ = 255;
+    this.pathOpen = false;
+    this.mouseDragging = false;
+    this.pmouseXLastFrame = 0;
+    this.pmouseYLastFrame = 0;
+    this.curColorMode = PConstants$1.RGB;
+    this.curTint = null;
+    this.curTint3d = null;
+    this.getLoaded = false;
+    this.start = Date.now();
+    this.timeSinceLastFPS = this.start;
+    this.framesSinceLastFPS = 0;
+    this.textcanvas = undefined;
+    this.curveBasisMatrix = undefined;
+    this.curveToBezierMatrix = undefined;
+    this.curveDrawMatrix = undefined;
+    this.bezierDrawMatrix = undefined;
+    this.bezierBasisInverse = undefined;
+    this.bezierBasisMatrix = undefined;
+    this.curContextCache = {
+      attributes: {},
+      locations: {}
+    };
+
+    // Shaders
+    this.programObject3D = undefined;
+    this.programObject2D = undefined;
+    this.programObjectUnlitShape = undefined;
+    this.boxBuffer = undefined;
+    this.boxNormBuffer = undefined;
+    this.boxOutlineBuffer = undefined;
+    this.rectBuffer = undefined;
+    this.rectNormBuffer = undefined;
+    this.sphereBuffer = undefined;
+    this.lineBuffer = undefined;
+    this.fillBuffer = undefined;
+    this.fillColorBuffer = undefined;
+    this.strokeColorBuffer = undefined;
+    this.pointBuffer = undefined;
+    this.shapeTexVBO = undefined;
+    this.canTex,   // texture for createGraphics
+    this.textTex,   // texture for 3d tex
+    this.curTexture = {width:0,height:0};
+    this.curTextureMode = PConstants$1.IMAGE;
+    this.usingTexture = false;
+    this.textBuffer = undefined;
+    this.textureBuffer = undefined;
+    this.indexBuffer = undefined;
+
+    // Text alignment
+    this.horizontalTextAlignment = PConstants$1.LEFT;
+    this.verticalTextAlignment = PConstants$1.BASELINE;
+    this.textMode = PConstants$1.MODEL;
+
+    // Font state
+    this.curFontName = "Arial";
+    this.curTextSize = 12;
+    this.curTextAscent = 9;
+    this.curTextDescent = 2;
+    this.curTextLeading = 14;
+    this.curTextFont = PFont.get(this.curFontName, this.curTextSize);
+
+    // Pixels cache
+    this.originalContext = undefined;
+    this.proxyContext = null;
+    this.isContextReplaced = false;
+    this.setPixelsCached = undefined;
+    this.maxPixelsCached = 1000;
+    this.pressedKeysMap = [];
+    this.lastPressedKeyCode = null;
+    this.codedKeys = [ PConstants$1.SHIFT, PConstants$1.CONTROL, PConstants$1.ALT, PConstants$1.CAPSLK, PConstants$1.PGUP, PConstants$1.PGDN,
+                      PConstants$1.END, PConstants$1.HOME, PConstants$1.LEFT, PConstants$1.UP, PConstants$1.RIGHT, PConstants$1.DOWN, PConstants$1.NUMLK,
+                      PConstants$1.INSERT, PConstants$1.F1, PConstants$1.F2, PConstants$1.F3, PConstants$1.F4, PConstants$1.F5, PConstants$1.F6, PConstants$1.F7,
+                      PConstants$1.F8, PConstants$1.F9, PConstants$1.F10, PConstants$1.F11, PConstants$1.F12, PConstants$1.META ];
+
+    // User can only have MAX_LIGHTS lights
+    this.lightCount = 0;
+
+    //sphere stuff
+    this.sphereDetailV = 0;
+    this.sphereDetailU = 0;
+    this.sphereX = [];
+    this.sphereY = [];
+    this.sphereZ = [];
+    this.sinLUT = new Float32Array(PConstants$1.SINCOS_LENGTH);
+    this.cosLUT = new Float32Array(PConstants$1.SINCOS_LENGTH);
+    this.sphereVerts = undefined;
+    this.sphereNorms;
+
+    // Camera defaults and settings
+    this.cam = undefined;
+    this.cameraInv = undefined;
+    this.modelView = undefined;
+    this.modelViewInv = undefined;
+    this.userMatrixStack = undefined;
+    this.userReverseMatrixStack = undefined;
+    this.inverseCopy = undefined;
+    this.projection = undefined;
+    this.manipulatingCamera = false;
+    this.frustumMode = false;
+    this.cameraFOV = 60 * (Math.PI / 180);
+    this.cameraX = sketch.width / 2;
+    this.cameraY = sketch.height / 2;
+    this.cameraZ = this.cameraY / Math.tan(this.cameraFOV / 2);
+    this.cameraNear = this.cameraZ / 10;
+    this.cameraFar = this.cameraZ * 10;
+    this.cameraAspect = sketch.width / sketch.height;
+
+    this.vertArray = [];
+    this.curveVertArray = [];
+    this.curveVertCount = 0;
+    this.isCurve = false;
+    this.isBezier = false;
+    this.firstVert = true;
+
+    // PShape stuff
+    this.curShapeMode = PConstants$1.CORNER;
+
+    // Stores states for pushStyle() and popStyle().
+    this.styleArray = [];
+
+    // The vertices for the box cannot be specified using a triangle strip since each
+    // side of the cube must have its own set of normals.
+    // Vertices are specified in a counter-clockwise order.
+    // Triangles are in this order: back, front, right, bottom, left, top.
+    this.boxVerts = new Float32Array([
+       0.5,  0.5, -0.5,  0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5, -0.5,  0.5, -0.5,  0.5,  0.5, -0.5,
+       0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5,  0.5,  0.5,  0.5,  0.5,
+       0.5,  0.5, -0.5,  0.5,  0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5,
+       0.5, -0.5, -0.5,  0.5, -0.5,  0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5, -0.5, -0.5, -0.5,  0.5, -0.5, -0.5,
+      -0.5, -0.5, -0.5, -0.5, -0.5,  0.5, -0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5,  0.5, -0.5, -0.5, -0.5, -0.5,
+       0.5,  0.5,  0.5,  0.5,  0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,  0.5,  0.5,  0.5,  0.5]);
+
+    this.boxOutlineVerts = new Float32Array([
+       0.5,  0.5,  0.5,  0.5, -0.5,  0.5,  0.5,  0.5, -0.5,  0.5, -0.5, -0.5,
+      -0.5,  0.5, -0.5, -0.5, -0.5, -0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5,
+       0.5,  0.5,  0.5,  0.5,  0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5, -0.5,
+      -0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5,  0.5,  0.5,  0.5,  0.5,  0.5,
+       0.5, -0.5,  0.5,  0.5, -0.5, -0.5,  0.5, -0.5, -0.5, -0.5, -0.5, -0.5,
+      -0.5, -0.5, -0.5, -0.5, -0.5,  0.5, -0.5, -0.5,  0.5,  0.5, -0.5,  0.5]);
+
+    this.boxNorms = new Float32Array([
+       0,  0, -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,
+       0,  0,  1,  0,  0,  1,  0,  0,  1,  0,  0,  1,  0,  0,  1,  0,  0,  1,
+       1,  0,  0,  1,  0,  0,  1,  0,  0,  1,  0,  0,  1,  0,  0,  1,  0,  0,
+       0, -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,  0,
+      -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,  0,  0, -1,  0,  0,
+       0,  1,  0,  0,  1,  0,  0,  1,  0,  0,  1,  0,  0,  1,  0,  0,  1,  0]);
+
+    // These verts are used for the fill and stroke using TRIANGLE_FAN and LINE_LOOP.
+    this.rectVerts = new Float32Array([0,0,0, 0,1,0, 1,1,0, 1,0,0]);
+    this.rectNorms = new Float32Array([0,0,1, 0,0,1, 0,0,1, 0,0,1]);
+
+    // set up sketch function biundings
+    this.bindSketchFNames(sketch);
+  }
+
+  bindSketchFNames(p) {
+    p.size = this.size.bind(this);
+    p.background = this.background.bind(this);
+    p.alpha = this.alpha.bind(this);
+  }
+
+  a3DOnlyFunction() {
+    // noop
+  }
+
+  $ensureContext() {
+    return this.curContext;
+  }
+
+  saveContext() {
+    this.curContext.save();
+  }
+
+  restoreContext() {
+    this.curContext.restore();
+    this.isStrokeDirty = true;
+    this.isFillDirty = true;
+  }
+
+  /**
+  * Multiplies the current matrix by the one specified through the parameters. This is very slow because it will
+  * try to calculate the inverse of the transform, so avoid it whenever possible. The equivalent function
+  * in OpenGL is glMultMatrix().
+  *
+  * @param {int|float} n00-n15      numbers which define the 4x4 matrix to be multiplied
+  *
+  * @returns none
+  *
+  * @see popMatrix
+  * @see pushMatrix
+  * @see resetMatrix
+  * @see printMatrix
+  */
+  applyMatrix() {
+    var a = arguments;
+    this.modelView.apply(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15]);
+    this.modelViewInv.invApply(a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13], a[14], a[15]);
+  }
+
+  /**
+  * Defines the dimension of the display window in units of pixels. The size() function must
+  * be the first line in setup(). If size() is not called, the default size of the window is
+  * 100x100 pixels. The system variables width and height are set by the parameters passed to
+  * the size() function.
+  *
+  * @param {int} aWidth     width of the display window in units of pixels
+  * @param {int} aHeight    height of the display window in units of pixels
+  * @param {MODE} aMode     Either P2D, P3D, JAVA2D, or OPENGL
+  *
+  * @see createGraphics
+  * @see screen
+  */
+  size(aWidth, aHeight, aMode) {
+    if (this.doStroke) {
+      this.curSketch.stroke(0);
+    }
+
+    if (this.doFill) {
+      this.curSketch.fill(255);
+    }
+
+    let curContext = this.curContext;
+    let curElement = this.curElement;
+    let curTextFont= this.curTextFont;
+
+    // The default 2d context has already been created in the p.init() stage if
+    // a 3d context was not specified. This is so that a 2d context will be
+    // available if size() was not called.
+    let savedProperties = {
+      fillStyle: curContext.fillStyle,
+      strokeStyle: curContext.strokeStyle,
+      lineCap: curContext.lineCap,
+      lineJoin: curContext.lineJoin
+    };
+
+    // remove the style width and height properties to ensure that the canvas gets set to
+    // aWidth and aHeight coming in
+    if (curElement.style.length > 0 ) {
+      curElement.style.removeProperty("width");
+      curElement.style.removeProperty("height");
+    }
+
+    curElement.width = p.width = aWidth || 100;
+    curElement.height = p.height = aHeight || 100;
+
+    for (var prop in savedProperties) {
+      if (savedProperties.hasOwnProperty(prop)) {
+        curContext[prop] = savedProperties[prop];
+      }
+    }
+
+    // make sure to set the default font the first time round.
+    this.curSketch.textFont(curTextFont);
+
+    // Set the background to whatever it was called last as if background() was called before size()
+    // If background() hasn't been called before, set background() to a light gray
+    this.curSketch.background();
+
+    // set 5% for pixels to cache (or 1000)
+    this.maxPixelsCached = Math.max(1000, aWidth * aHeight * 0.05);
+
+//
+// FIXME: TODO: do we still need this with the rewrite?
+//
+//    // Externalize the context
+//    this.curSketch.externals.context = curContext;
+
+    for (let i = 0; i < PConstants$1.SINCOS_LENGTH; i++) {
+      this.sinLUT[i] = Math.sin(i * (MATH.PI / 180) * 0.5);
+      this.cosLUT[i] = Math.cos(i * (MATH.PI / 180) * 0.5);
+    }
+  }
+
+  /**
+   * The fill() function sets the color used to fill shapes. For example, if you run <b>fill(204, 102, 0)</b>, all subsequent shapes will be filled with orange.
+   * This color is either specified in terms of the RGB or HSB color depending on the current <b>colorMode()</b>
+   *(the default color space is RGB, with each value in the range from 0 to 255).
+   * <br><br>When using hexadecimal notation to specify a color, use "#" or "0x" before the values (e.g. #CCFFAA, 0xFFCCFFAA).
+   * The # syntax uses six digits to specify a color (the way colors are specified in HTML and CSS). When using the hexadecimal notation starting with "0x";
+   * the hexadecimal value must be specified with eight characters; the first two characters define the alpha component and the remainder the red, green, and blue components.
+   * <br><br>The value for the parameter "gray" must be less than or equal to the current maximum value as specified by <b>colorMode()</b>. The default maximum value is 255.
+   * <br><br>To change the color of an image (or a texture), use tint().
+   *
+   * @param {int|float} gray    number specifying value between white and black
+   * @param {int|float} value1  red or hue value
+   * @param {int|float} value2  green or saturation value
+   * @param {int|float} value3  blue or brightness value
+   * @param {int|float} alpha   opacity of the fill
+   * @param {Color} color       any value of the color datatype
+   * @param {int} hex           color value in hexadecimal notation (i.e. #FFCC00 or 0xFFFFCC00)
+   *
+   * @see #noFill()
+   * @see #stroke()
+   * @see #tint()
+   * @see #background()
+   * @see #colorMode()
+   */
+  fill() {
+    let color = this.curSketch.color.apply(this, arguments);
+    if(color === this.currentFillColor && this.doFill) {
+      return;
+    }
+    this.doFill = true;
+    this.currentFillColor = color;
+  }
+
+  /**
+   * The stroke() function sets the color used to draw lines and borders around shapes. This color
+   * is either specified in terms of the RGB or HSB color depending on the
+   * current <b>colorMode()</b> (the default color space is RGB, with each
+   * value in the range from 0 to 255).
+   * <br><br>When using hexadecimal notation to specify a color, use "#" or
+   * "0x" before the values (e.g. #CCFFAA, 0xFFCCFFAA). The # syntax uses six
+   * digits to specify a color (the way colors are specified in HTML and CSS).
+   * When using the hexadecimal notation starting with "0x", the hexadecimal
+   * value must be specified with eight characters; the first two characters
+   * define the alpha component and the remainder the red, green, and blue
+   * components.
+   * <br><br>The value for the parameter "gray" must be less than or equal
+   * to the current maximum value as specified by <b>colorMode()</b>.
+   * The default maximum value is 255.
+   *
+   * @param {int|float} gray    number specifying value between white and black
+   * @param {int|float} value1  red or hue value
+   * @param {int|float} value2  green or saturation value
+   * @param {int|float} value3  blue or brightness value
+   * @param {int|float} alpha   opacity of the stroke
+   * @param {Color} color       any value of the color datatype
+   * @param {int} hex           color value in hexadecimal notation (i.e. #FFCC00 or 0xFFFFCC00)
+   *
+   * @see #fill()
+   * @see #noStroke()
+   * @see #tint()
+   * @see #background()
+   * @see #colorMode()
+   */
+  stroke() {
+    let color = this.curSketch.color.apply(this, arguments);
+    if(color === this.currentStrokeColor && this.doStroke) {
+      return;
+    }
+    this.doStroke = true;
+    this.currentStrokeColor = color;
+  }
+
+
+  /**
+   * The strokeWeight() function sets the width of the stroke used for lines, points, and the border around shapes.
+   * All widths are set in units of pixels.
+   *
+   * @param {int|float} w the weight (in pixels) of the stroke
+   */
+  strokeWeight(w) {
+    this.lineWidth = w;
+  }
+
+  backgroundHelper(arg1, arg2, arg3, arg4) {
+    let obj = undefined;
+    let p = this.curSketch;
+
+    if (arg1 instanceof PImage || arg1.__isPImage) {
+      obj = arg1;
+      if (!obj.loaded) {
+        throw "Error using image in background(): PImage not loaded.";
+      }
+      if(obj.width !== p.width || obj.height !== p.height){
+        throw "Background image must be the same dimensions as the canvas.";
+      }
+    } else {
+      obj = p.color(arg1, arg2, arg3, arg4);
+    }
+    this.backgroundObj = obj;
+  }
+
+  alpha(aColor) {
+    return ((aColor & PConstants$1.ALPHA_MASK) >>> 24) / 255 * this.colorModeA;
+  }
+}
+
+class Drawing2D extends DrawingShared {
+	constructor(sketch, canvas, context) {
+    super(sketch, canvas, context);
+	}
+
+  size(aWidth, aHeight, aMode) {
+    if (this.curContext === undefined) {
+      // size() was called without p.init() default context, i.e. p.createGraphics()
+      this.curContext = curElement.getContext("2d");
+//      this.userMatrixStack = new PMatrixStack();
+//      this.userReverseMatrixStack = new PMatrixStack();
+//      this.modelView = new PMatrix2D();
+//      this.modelViewInv = new PMatrix2D();
+    }
+
+    super.size(aWidth, aHeight, aMode);
+  }
+
+  background(arg1, arg2, arg3, arg4) {
+    if (arg1 !== undefined) {
+      super.backgroundHelper(arg1, arg2, arg3, arg4);
+    }
+
+    let p = this.curSketch;
+    let backgroundObj = this.backgroundObj;
+
+    this.saveContext();
+
+    if (backgroundObj instanceof PImage || backgroundObj.__isPImage) {
+      this.curContext.setTransform(1, 0, 0, 1, 0, 0);
+      p.image(backgroundObj, 0, 0);
+    }
+
+    else {
+      this.curContext.setTransform(1, 0, 0, 1, 0, 0);
+      // If the background is transparent
+      if (p.alpha(backgroundObj) !== this.colorModeA) {
+        this.curContext.clearRect(0,0, p.width, p.height);
+      }
+      this.curContext.fillStyle = p.color.toString(backgroundObj);
+      this.curContext.fillRect(0, 0, p.width, p.height);
+      this.isFillDirty = true;
+    }
+    this.restoreContext();
+  }
+}
+
+const BaseValues = {
+  name : 'Processing.js Instance', // Set Processing defaults / environment variables
+  use3DContext : false, // default '2d' canvas context
+
+  /**
+   * Confirms if a Processing program is "focused", meaning that it is
+   * active and will accept input from mouse or keyboard. This variable
+   * is "true" if it is focused and "false" if not. This variable is
+   * often used when you want to warn people they need to click on the
+   * browser before it will work.
+  */
+  focused : false,
+  breakShape : false,
+
+  // Glyph path storage for textFonts
+  glyphTable : {},
+
+  // Global vars for tracking mouse position
+  pmouseX : 0,
+  pmouseY : 0,
+  mouseX : 0,
+  mouseY : 0,
+  mouseButton : 0,
+  mouseScroll : 0,
+
+  // Undefined event handlers to be replaced by user when needed
+  mouseClicked : undefined,
+  mouseDragged : undefined,
+  mouseMoved : undefined,
+  mousePressed : undefined,
+  mouseReleased : undefined,
+  mouseScrolled : undefined,
+  mouseOver : undefined,
+  mouseOut : undefined,
+  touchStart : undefined,
+  touchEnd : undefined,
+  touchMove : undefined,
+  touchCancel : undefined,
+  key : undefined,
+  keyCode : undefined,
+  keyPressed : noop, // needed to remove function checks
+  keyReleased : noop,
+  keyTyped : noop,
+  draw : undefined,
+  setup : undefined,
+
+  // Remapped vars
+  __mousePressed : false,
+  __keyPressed : false,
+  __frameRate : 60,
+
+  // The current animation frame
+  frameCount : 0,
+
+  // The height/width of the canvas
+  width : 100,
+  height : 100
 };
 
 /**
@@ -3235,384 +4523,6 @@ class HashMap extends JavaBaseClass {
   }
 }
 
-/**
-* [internal function] computeFontMetrics() calculates various metrics for text
-* placement. Currently this function computes the ascent, descent and leading
-* (from "lead", used for vertical space) values for the currently active font.
-*/
-function computeFontMetrics(pfont) {
-  var emQuad = 250,
-      correctionFactor = pfont.size / emQuad,
-      canvas = document.createElement("canvas");
-  canvas.width = 2*emQuad;
-  canvas.height = 2*emQuad;
-  canvas.style.opacity = 0;
-  var cfmFont = pfont.getCSSDefinition(emQuad+"px", "normal"),
-      ctx = canvas.getContext("2d");
-  ctx.font = cfmFont;
-
-  // Size the canvas using a string with common max-ascent and max-descent letters.
-  // Changing the canvas dimensions resets the context, so we must reset the font.
-  var protrusions = "dbflkhyjqpg";
-  canvas.width = ctx.measureText(protrusions).width;
-  ctx.font = cfmFont;
-
-  // for text lead values, we meaure a multiline text container.
-  var leadDiv = document.createElement("div");
-  leadDiv.style.position = "absolute";
-  leadDiv.style.opacity = 0;
-  leadDiv.style.fontFamily = '"' + pfont.name + '"';
-  leadDiv.style.fontSize = emQuad + "px";
-  leadDiv.innerHTML = protrusions + "<br/>" + protrusions;
-  document.body.appendChild(leadDiv);
-
-  var w = canvas.width,
-      h = canvas.height,
-      baseline = h/2;
-
-  // Set all canvas pixeldata values to 255, with all the content
-  // data being 0. This lets us scan for data[i] != 255.
-  ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, w, h);
-  ctx.fillStyle = "black";
-  ctx.fillText(protrusions, 0, baseline);
-  var pixelData = ctx.getImageData(0, 0, w, h).data;
-
-  // canvas pixel data is w*4 by h*4, because R, G, B and A are separate,
-  // consecutive values in the array, rather than stored as 32 bit ints.
-  var i = 0,
-      w4 = w * 4,
-      len = pixelData.length;
-
-  // Finding the ascent uses a normal, forward scanline
-  while (++i < len && pixelData[i] === 255) {
-    noop();
-  }
-  var ascent = Math.round(i / w4);
-
-  // Finding the descent uses a reverse scanline
-  i = len - 1;
-  while (--i > 0 && pixelData[i] === 255) {
-    noop();
-  }
-  var descent = Math.round(i / w4);
-
-  // set font metrics
-  pfont.ascent = correctionFactor * (baseline - ascent);
-  pfont.descent = correctionFactor * (descent - baseline);
-
-  // Then we try to get the real value from the browser
-  if (document.defaultView.getComputedStyle) {
-    var leadDivHeight = document.defaultView.getComputedStyle(leadDiv,null).getPropertyValue("height");
-    leadDivHeight = correctionFactor * leadDivHeight.replace("px","");
-    if (leadDivHeight >= pfont.size * 2) {
-      pfont.leading = Math.round(leadDivHeight/2);
-    }
-  }
-  document.body.removeChild(leadDiv);
-
-  // if we're caching, cache the context used for this pfont
-  if (pfont.caching) {
-    return ctx;
-  }
-}
-
-const preloading = {
-  // template element used to compare font sizes
-  template: {},
-
-  // indicates whether or not the reference tiny font has been loaded
-  initialized: false,
-
-  // load the reference tiny font via a css @font-face rule
-  initialize: function() {
-    let generateTinyFont = function() {
-      let encoded = "#E3KAI2wAgT1MvMg7Eo3VmNtYX7ABi3CxnbHlm" +
-                    "7Abw3kaGVhZ7ACs3OGhoZWE7A53CRobXR47AY3" +
-                    "AGbG9jYQ7G03Bm1heH7ABC3CBuYW1l7Ae3AgcG" +
-                    "9zd7AI3AE#B3AQ2kgTY18PPPUACwAg3ALSRoo3" +
-                    "#yld0xg32QAB77#E777773B#E3C#I#Q77773E#" +
-                    "Q7777777772CMAIw7AB77732B#M#Q3wAB#g3B#" +
-                    "E#E2BB//82BB////w#B7#gAEg3E77x2B32B#E#" +
-                    "Q#MTcBAQ32gAe#M#QQJ#E32M#QQJ#I#g32Q77#";
-      let expand = function(input) {
-                     return "AAAAAAAA".substr(~~input ? 7-input : 6);
-                   };
-      return encoded.replace(/[#237]/g, expand);
-    };
-    let fontface = document.createElement("style");
-    fontface.setAttribute("type","text/css");
-    fontface.innerHTML =  "@font-face {\n" +
-                          '  font-family: "PjsEmptyFont";' + "\n" +
-                          "  src: url('data:application/x-font-ttf;base64,"+generateTinyFont()+"')\n" +
-                          "       format('truetype');\n" +
-                          "}";
-    document.head.appendChild(fontface);
-
-    // set up the template element
-    let element = document.createElement("span");
-    element.style.cssText = 'position: absolute; top: -1000; left: 0; opacity: 0; font-family: "PjsEmptyFont", fantasy;';
-    element.innerHTML = "AAAAAAAA";
-    document.body.appendChild(element);
-    this.template = element;
-
-    this.initialized = true;
-  },
-
-  // Shorthand function to get the computed width for an element.
-  getElementWidth: function(element) {
-    return document.defaultView.getComputedStyle(element,"").getPropertyValue("width");
-  },
-
-  // time taken so far in attempting to load a font
-  timeAttempted: 0,
-
-  // returns false if no fonts are pending load, or true otherwise.
-  pending: function(intervallength) {
-    if (!this.initialized) {
-      this.initialize();
-    }
-    let element,
-        computedWidthFont,
-        computedWidthRef = this.getElementWidth(this.template);
-    for (let i = 0; i < this.fontList.length; i++) {
-      // compares size of text in pixels. if equal, custom font is not yet loaded
-      element = this.fontList[i];
-      computedWidthFont = this.getElementWidth(element);
-      if (this.timeAttempted < 4000 && computedWidthFont === computedWidthRef) {
-        this.timeAttempted += intervallength;
-        return true;
-      } else {
-        document.body.removeChild(element);
-        this.fontList.splice(i--, 1);
-        this.timeAttempted = 0;
-      }
-    }
-    // if there are no more fonts to load, pending is false
-    if (this.fontList.length === 0) {
-      return false;
-    }
-    // We should have already returned before getting here.
-    // But, if we do get here, length!=0 so fonts are pending.
-    return true;
-  },
-
-  // fontList contains elements to compare font sizes against a template
-  fontList: [],
-
-  // addedList contains the fontnames of all the fonts loaded via @font-face
-  addedList: {},
-
-  // adds a font to the font cache
-  // creates an element using the font, to start loading the font,
-  // and compare against a default font to see if the custom font is loaded
-  add: function(fontSrc) {
-    if (!this.initialized) {
-     this.initialize();
-    }
-
-    // fontSrc can be a string or a javascript object
-    // acceptable fonts are .ttf, .otf, and data uri
-    let fontName = (typeof fontSrc === 'object' ? fontSrc.fontFace : fontSrc),
-        fontUrl = (typeof fontSrc === 'object' ? fontSrc.url : fontSrc);
-
-    // check whether we already created the @font-face rule for this font
-    if (this.addedList[fontName]) {
-      return;
-    }
-
-    // if we didn't, create the @font-face rule
-    let style = document.createElement("style");
-    style.setAttribute("type","text/css");
-    style.innerHTML = "@font-face{\n  font-family: '" + fontName + "';\n  src:  url('" + fontUrl + "');\n}\n";
-    document.head.appendChild(style);
-    this.addedList[fontName] = true;
-
-    // also create the element to load and compare the new font
-    let element = document.createElement("span");
-    element.style.cssText = "position: absolute; top: 0; left: 0; opacity: 0;";
-    element.style.fontFamily = '"' + fontName + '", "PjsEmptyFont", fantasy';
-    element.innerHTML = "AAAAAAAA";
-    document.body.appendChild(element);
-    this.fontList.push(element);
-  }
-};
-
-/**
- * Constructor for a system or from-file (non-SVG) font.
- */
-class PFont {
-  constructor(name, size) {
-    if (name === undef) {
-      name = "";
-    }
-    this.name = name;
-    if (size === undef) {
-      size = 0;
-    }
-    this.size = size;
-    this.glyph = false;
-    this.ascent = 0;
-    this.descent = 0;
-    // For leading, the "safe" value uses the standard TEX ratio of 1.2 em
-    this.leading = 1.2 * size;
-
-    // Note that an italic, bold font must used "... Bold Italic"
-    // in P5. "... Italic Bold" is treated as normal/normal.
-    let illegalIndicator = name.indexOf(" Italic Bold");
-    if (illegalIndicator !== -1) {
-      name = name.substring(0, illegalIndicator);
-    }
-
-    // determine font style
-    this.style = "normal";
-    let italicsIndicator = name.indexOf(" Italic");
-    if (italicsIndicator !== -1) {
-      name = name.substring(0, italicsIndicator);
-      this.style = "italic";
-    }
-
-    // determine font weight
-    this.weight = "normal";
-    let boldIndicator = name.indexOf(" Bold");
-    if (boldIndicator !== -1) {
-      name = name.substring(0, boldIndicator);
-      this.weight = "bold";
-    }
-
-    // determine font-family name
-    this.family = "sans-serif";
-    if (name !== undef) {
-      switch(name) {
-        case "sans-serif":
-        case "serif":
-        case "monospace":
-        case "fantasy":
-        case "cursive":
-          this.family = name;
-          break;
-        default:
-          this.family = '"' + name + '", sans-serif';
-          break;
-      }
-    }
-    // Calculate the ascent/descent/leading value based on how the browser renders this font.
-    this.context2d = computeFontMetrics(this);
-    this.css = this.getCSSDefinition();
-    if (this.context2d) {
-      this.context2d.font = this.css;
-    }
-  }
-
-  /**
-   * This function generates the CSS "font" string for this PFont
-   */
-  getCSSDefinition(fontSize, lineHeight) {
-    if(fontSize===undef) {
-      fontSize = this.size + "px";
-    }
-    if(lineHeight===undef) {
-      lineHeight = this.leading + "px";
-    }
-    // CSS "font" definition: font-style font-variant font-weight font-size/line-height font-family
-    let components = [this.style, "normal", this.weight, fontSize + "/" + lineHeight, this.family];
-    return components.join(" ");
-  }
-
-  /**
-   * Rely on the cached context2d measureText function.
-   */
-  measureTextWidth(string) {
-    return this.context2d.measureText(string).width;
-  }
-
-  /**
-   * FALLBACK FUNCTION -- replaces Pfont.prototype.measureTextWidth
-   * when the font cache becomes too large. This contructs a new
-   * canvas 2d context object for calling measureText on.
-   */
-  measureTextWidthFallback(string) {
-    let canvas = document.createElement("canvas"),
-        ctx = canvas.getContext("2d");
-    ctx.font = this.css;
-    return ctx.measureText(string).width;
-  }
-}
-
-
-/**
- * Global "loaded fonts" list, internal to PFont
- */
-PFont.PFontCache = { length: 0 };
-
-/**
- * This function acts as single access point for getting and caching
- * fonts across all sketches handled by an instance of Processing.js
- */
-PFont.get = function(fontName, fontSize) {
-  // round fontSize to one decimal point
-  fontSize = ((fontSize*10)+0.5|0)/10;
-  let cache = PFont.PFontCache,
-      idx = fontName+"/"+fontSize;
-  if (!cache[idx]) {
-    cache[idx] = new PFont(fontName, fontSize);
-    cache.length++;
-
-    // FALLBACK FUNCTIONALITY 1:
-    // If the cache has become large, switch over from full caching
-    // to caching only the static metrics for each new font request.
-    if (cache.length === 50) {
-      PFont.prototype.measureTextWidth = PFont.prototype.measureTextWidthFallback;
-      PFont.prototype.caching = false;
-      // clear contexts stored for each cached font
-      let entry;
-      for (entry in cache) {
-        if (entry !== "length") {
-          cache[entry].context2d = null;
-        }
-      }
-      return new PFont(fontName, fontSize);
-    }
-
-    // FALLBACK FUNCTIONALITY 2:
-    // If the cache has become too large, switch off font caching entirely.
-    if (cache.length === 400) {
-      PFont.PFontCache = {};
-      PFont.get = PFont.getFallback;
-      return new PFont(fontName, fontSize);
-    }
-  }
-  return cache[idx];
-};
-
-/**
- * regulates whether or not we're caching the canvas
- * 2d context for quick text width computation.
- */
-PFont.caching = true;
-
-/**
- * FALLBACK FUNCTION -- replaces PFont.get when the font cache
- * becomes too large. This function bypasses font caching entirely.
- */
-PFont.getFallback = function(fontName, fontSize) {
-  return new PFont(fontName, fontSize);
-};
-
-/**
- * Lists all standard fonts. Due to browser limitations, this list is
- * not the system font list, like in P5, but the CSS "genre" list.
- */
-PFont.list = function() {
-  return ["sans-serif", "serif", "monospace", "fantasy", "cursive"];
-};
-
-/**
- * Loading external fonts through @font-face rules is handled by PFont,
- * to ensure fonts loaded in this way are globally available.
- */
-PFont.preloading = preloading;
-
 // Pseudo-random generator
 // see http://www.math.uni-bielefeld.de/~sillke/ALGORITHMS/random/marsaglia-c
 class Marsaglia$1 {
@@ -4119,6 +5029,16 @@ function removeFirstArgument(args) {
 	return Array.from(args).slice(1);
 }
 
+/**
+ * This represents a static class of functions that perform the
+ * role of basic Java functions, but renamed to not conflict
+ * (in normal code) with function in a user's sketch.
+ *
+ * When the parser encounters the normal function, in a scope
+ * that does not have an explicit function by that name in its
+ * lookup table, it will rewrite the call to one of these static
+ * underscored functions, so that the code does what the user expects.
+ */
 class JavaProxies {
 
   /**
@@ -4412,14 +5332,6 @@ class JavaProxies {
   }
 }
 
-/**
- * The "default scope" is effectively the Processing API, which is then
- * extended with a user's own sketch code.
- *
- * Changing of the prototype protects internal Processing code from
- * the changes in defaultScope [FIXME: TODO: what did we mean by this?]
- */
-
 // import PMatrix2D from "./Processing Objects/PMatrix2D"
 // import PMatrix3D from "./Processing Objects/PMatrix3D"
 // import PShape from "./Processing Objects/PShape"
@@ -4429,51 +5341,75 @@ class JavaProxies {
 // import XMLAttribute from "./Processing Objects/XMLAttribute"
 // import XMLElement from "./Processing Objects/XMLElement"
 
-let defaultScopes = {
-  ArrayList,
-  Char: Char$1,
-  Character: Char$1,
-  HashMap,
-  PFont
-};
-
-let processingAPIs = [Math, ProcessingMath, JavaProxies];
-
-// Due to the fact that PConstants is a massive list of values,
-// we can't cleanly set up this "inheritance" using ES6 classes.
-let DefaultScope = function DefaultScope() {};
-DefaultScope.prototype = PConstants;
-
-
-
-// =====================================================================
-//
-//    THIS IS STILL AN OLD FILE FROM THE ORIGINAL NODE-PROCESSING-JS
-//
-// =====================================================================
-
-
-
 /**
- * Processing.js default scope
+ * This function effectively generates "a sketch" without any
+ * user defined code loaded into it yet, hence acting as
+ * the default global sketch scope until we inject the user's
+ * own functions and classes into it.
+ *
+ * This code works together with the AST code to "fake" several
+ * ways in which Java does things differently from JavaScript.
  */
 function generateDefaultScope(additionalScopes) {
 
-  // bootstrap a default scope instance
-  additionalScopes = additionalScopes || {};
-  let scopes = Object.assign({}, defaultScopes, additionalScopes);
-  let defaultScope = new DefaultScope();
-  Object.keys(scopes).forEach(prop => defaultScope[prop] = scopes[prop]);
+  // FIXME: TODO: determine the use3d value
 
-  // bootstrap the Processing API functions
-  processingAPIs.forEach(API => {
-    Object.getOwnPropertyNames(API).forEach(fname => {
-      if (fname === "length") return;
-      if (fname === "name") return;
-      if (fname === "prototype") return;
-      defaultScope[fname] = API[fname];
+  /**
+   * The "default scope" is effectively the Processing API, which is then
+   * extended with a user's own sketch code. However, because we're going
+   * to dynamically update its Prototype, we define it inline, so that updates
+   * to the DefaultScope prototype only affects individual sketches, not all
+   * sketches built off of the same prototype.
+   */
+  let DefaultScope = function DefaultScope() {};
+
+  DefaultScope.prototype = Object.assign(
+    {},
+
+    // Processing constants and independent functions:
+    PConstants$1,
+    BaseValues,
+    Math,
+    ProcessingMath,
+
+    // Java constants and independent functions:
+    JavaProxies,
+
+    // Processing objects:
+    {
+      ArrayList,
+      Char: Char$1,
+      Character: Char$1,
+      HashMap,
+      PFont
+    }
+  );
+
+  // bootstrap a default scope instance
+  let defaultScope = new DefaultScope();
+
+  // and tack on any additional scopes that might be necessary
+  // based on the user's needs. This allows for things like
+  // imports, which don't work, being made to work anyway by
+  // adding similar API'd objects as additional scope.
+  if (additionalScopes) {
+    Object.keys(additionalScopes).forEach(prop => {
+      defaultScope[prop] = scopes[prop];
     });
-  });
+  }
+
+  // FIXME: TODO: testing size() calls
+  defaultScope.__setup_drawing_context = function(canvas, context) {
+    let dContext = new Drawing2D(defaultScope, canvas, context);
+    defaultScope.context = dContext;
+  };
+
+
+// =================================================================================
+//
+//    BELOW THIS POINT IS STILL ALL THE OLD CODE FROM THE ORIGINAL PROCESSING-JS
+//
+// =================================================================================
 
 
   ////////////////////////////////////////////////////////////////////////////
@@ -4720,7 +5656,7 @@ class Ast {
         return name$$1;
       }
       if(globalNames.hasOwnProperty(name$$1) ||
-         PConstants.hasOwnProperty(name$$1) ||
+         PConstants$1.hasOwnProperty(name$$1) ||
          this.defaultScope.hasOwnProperty(name$$1)) {
         return "$p." + name$$1;
       }
@@ -4932,33 +5868,205 @@ function injectStrings(code, strings) {
   });
 }
 
-function noop$1() {}
+function colorBindings(p, hooks) {
+  function color$4(aValue1, aValue2, aValue3, aValue4) {
+    let r, g, b, a;
+    let context = p.context;
 
-function playBindings(p, curElement, hooks) {
+
+    if (context.curColorMode === PConstants$1.HSB) {
+      var rgb = p.color.toRGB(aValue1, aValue2, aValue3);
+      r = rgb[0];
+      g = rgb[1];
+      b = rgb[2];
+    } else {
+      r = Math.round(255 * (aValue1 / context.colorModeX));
+      g = Math.round(255 * (aValue2 / context.colorModeY));
+      b = Math.round(255 * (aValue3 / context.colorModeZ));
+    }
+
+    a = Math.round(255 * (aValue4 / context.colorModeA));
+
+    // Limit values less than 0 and greater than 255
+    r = (r < 0) ? 0 : r;
+    g = (g < 0) ? 0 : g;
+    b = (b < 0) ? 0 : b;
+    a = (a < 0) ? 0 : a;
+    r = (r > 255) ? 255 : r;
+    g = (g > 255) ? 255 : g;
+    b = (b > 255) ? 255 : b;
+    a = (a > 255) ? 255 : a;
+
+    // Create color int
+    return (a << 24) & PConstants$1.ALPHA_MASK | (r << 16) & PConstants$1.RED_MASK | (g << 8) & PConstants$1.GREEN_MASK | b & PConstants$1.BLUE_MASK;
+  }
+
+  function color$2(aValue1, aValue2) {
+    let a;
+    let context = p.context;
+
+    // Color int and alpha
+    if (aValue1 & PConstants$1.ALPHA_MASK) {
+      a = Math.round(255 * (aValue2 / context.colorModeA));
+      // Limit values less than 0 and greater than 255
+      a = (a > 255) ? 255 : a;
+      a = (a < 0) ? 0 : a;
+
+      return aValue1 - (aValue1 & PConstants$1.ALPHA_MASK) + ((a << 24) & PConstants$1.ALPHA_MASK);
+    }
+    // Grayscale and alpha
+    if (context.curColorMode === PConstants$1.RGB) {
+      return color$4(aValue1, aValue1, aValue1, aValue2);
+    }
+    if (context.curColorMode === PConstants$1.HSB) {
+      return color$4(0, 0, (aValue1 / context.colorModeX) * context.colorModeZ, aValue2);
+    }
+  }
+
+  function color$1(aValue1) {
+    let context = p.context;
+
+    // Grayscale
+    if (aValue1 <= context.colorModeX && aValue1 >= 0) {
+        if (context.curColorMode === PConstants$1.RGB) {
+          return color$4(aValue1, aValue1, aValue1, context.colorModeA);
+        }
+        if (curColorMode === PConstants$1.HSB) {
+          return color$4(0, 0, (aValue1 / context.colorModeX) * context.colorModeZ, context.colorModeA);
+        }
+    }
+    // Color int
+    if (aValue1) {
+      if (aValue1 > 2147483647) {
+        // Java Overflow
+        aValue1 -= 4294967296;
+      }
+      return aValue1;
+    }
+  }
+
+  /**
+  * Creates colors for storing in variables of the color datatype. The parameters are
+  * interpreted as RGB or HSB values depending on the current colorMode(). The default
+  * mode is RGB values from 0 to 255 and therefore, the function call color(255, 204, 0)
+  * will return a bright yellow color. More about how colors are stored can be found in
+  * the reference for the color datatype.
+  *
+  * @param {int|float} aValue1        red or hue or grey values relative to the current color range.
+  * Also can be color value in hexadecimal notation (i.e. #FFCC00 or 0xFFFFCC00)
+  * @param {int|float} aValue2        green or saturation values relative to the current color range
+  * @param {int|float} aValue3        blue or brightness values relative to the current color range
+  * @param {int|float} aValue4        relative to current color range. Represents alpha
+  *
+  * @returns {color} the color
+  *
+  * @see colorMode
+  */
+  let color = function(aValue1, aValue2, aValue3, aValue4) {
+    let context = p.context;
+
+    // 4 arguments: (R, G, B, A) or (H, S, B, A)
+    if (aValue1 !== undefined && aValue2 !== undefined && aValue3 !== undefined && aValue4 !== undefined) {
+      return color$4(aValue1, aValue2, aValue3, aValue4);
+    }
+
+    // 3 arguments: (R, G, B) or (H, S, B)
+    if (aValue1 !== undefined && aValue2 !== undefined && aValue3 !== undefined) {
+      return color$4(aValue1, aValue2, aValue3, context.colorModeA);
+    }
+
+    // 2 arguments: (Color, A) or (Grayscale, A)
+    if (aValue1 !== undefined && aValue2 !== undefined) {
+      return color$2(aValue1, aValue2);
+    }
+
+    // 1 argument: (Grayscale) or (Color)
+    if (typeof aValue1 === "number") {
+      return color$1(aValue1);
+    }
+
+    // Default
+    return color$4(context.colorModeX, context.colorModeY, context.colorModeZ, context.colorModeA);
+  };
+
+  // Ease of use function to extract the colour bits into a string
+  color.toString = function(colorInt) {
+    return "rgba(" + ((colorInt & PConstants$1.RED_MASK) >>> 16) + "," + ((colorInt & PConstants$1.GREEN_MASK) >>> 8) +
+           "," + ((colorInt & PConstants$1.BLUE_MASK)) + "," + ((colorInt & PConstants$1.ALPHA_MASK) >>> 24) / 255 + ")";
+  };
+
+  // Easy of use function to pack rgba values into a single bit-shifted color int.
+  color.toInt = function(r, g, b, a) {
+    return (a << 24) & PConstants$1.ALPHA_MASK | (r << 16) & PConstants$1.RED_MASK | (g << 8) & PConstants$1.GREEN_MASK | b & PConstants$1.BLUE_MASK;
+  };
+
+  // Creates a simple array in [R, G, B, A] format, [255, 255, 255, 255]
+  color.toArray = function(colorInt) {
+    return [(colorInt & PConstants$1.RED_MASK) >>> 16, (colorInt & PConstants$1.GREEN_MASK) >>> 8,
+            colorInt & PConstants$1.BLUE_MASK, (colorInt & PConstants$1.ALPHA_MASK) >>> 24];
+  };
+
+  // Creates a WebGL color array in [R, G, B, A] format. WebGL wants the color ranges between 0 and 1, [1, 1, 1, 1]
+  color.toGLArray = function(colorInt) {
+    return [((colorInt & PConstants$1.RED_MASK) >>> 16) / 255, ((colorInt & PConstants$1.GREEN_MASK) >>> 8) / 255,
+            (colorInt & PConstants$1.BLUE_MASK) / 255, ((colorInt & PConstants$1.ALPHA_MASK) >>> 24) / 255];
+  };
+
+  // HSB conversion function from Mootools, MIT Licensed
+  color.toRGB = function(h, s, b) {
+    // Limit values greater than range
+    h = (h > colorModeX) ? colorModeX : h;
+    s = (s > colorModeY) ? colorModeY : s;
+    b = (b > colorModeZ) ? colorModeZ : b;
+
+    h = (h / colorModeX) * 360;
+    s = (s / colorModeY) * 100;
+    b = (b / colorModeZ) * 100;
+
+    var br = Math.round(b / 100 * 255);
+
+    if (s === 0) { // Grayscale
+      return [br, br, br];
+    }
+    var hue = h % 360;
+    var f = hue % 60;
+    var p = Math.round((b * (100 - s)) / 10000 * 255);
+    var q = Math.round((b * (6000 - s * f)) / 600000 * 255);
+    var t = Math.round((b * (6000 - s * (60 - f))) / 600000 * 255);
+    switch (Math.floor(hue / 60)) {
+    case 0:
+      return [br, t, p];
+    case 1:
+      return [q, br, p];
+    case 2:
+      return [p, br, t];
+    case 3:
+      return [p, q, br];
+    case 4:
+      return [t, p, br];
+    case 5:
+      return [br, p, q];
+    }
+  };
+
+  p.color = color;
+}
+
+/**
+ * This function takes a sketch and gives it all its "play"
+ * bindings. This is done using a wrapper function because there
+ * are several shared variables that these Processing calls use
+ * that we do not want to expose through the sketch itself, and
+ * so do NOT want added wholesale to the DefaultScope object.
+ */
+function playBindings(p, hooks) {
   let timeSinceLastFPS = 0,
       framesSinceLastFPS = 0,
       doLoop = true,
       loopStarted = false,
       looping = false,
       curFrameRate = 60,
-      curMsPerFrame = 1000 / curFrameRate,
-      sketchStarted = false;
-
-  // FIXME: TODO: should this be imparted here?
-  p.frameCount = 1;
-
-  // Internal function for kicking off the draw loop
-  // for a sketch. Depending on whether a noLoop() was
-  // issued during setup or initial draw, this might
-  // do "nothing", other than record the sketch start.
-  p.__run_after_initial_draw = function() {
-    if (sketchStarted) return;
-    if (doLoop) {
-      console.log("kicking off animation");
-      p.loop();
-    }
-    sketchStarted = true;
-  };
+      curMsPerFrame = 1000 / curFrameRate;
 
   /**
   * Executes the code within draw() one time. This functions allows the program to update
@@ -4975,13 +6083,14 @@ function playBindings(p, curElement, hooks) {
   * @see loop
   */
   function redrawHelper() {
-    var sec = (Date.now() - timeSinceLastFPS) / 1000;
+    let sec = (Date.now() - timeSinceLastFPS) / 1000;
     framesSinceLastFPS++;
-    var fps = framesSinceLastFPS / sec;
+    let fps = framesSinceLastFPS / sec;
     // recalculate FPS every half second for better accuracy.
     if (sec > 0.5) {
       timeSinceLastFPS = Date.now();
       framesSinceLastFPS = 0;
+      // mask the framerate as __frameRate, because of p.frameRate()
       p.__frameRate = fps;
     }
     p.frameCount++;
@@ -5010,9 +6119,7 @@ function playBindings(p, curElement, hooks) {
     doLoop = false;
     loopStarted = false;
     clearInterval(looping);
-    if (sketchStarted) {
-      hooks.onPause();
-    }
+    hooks.onPause();
   };
 
   /**
@@ -5043,9 +6150,7 @@ function playBindings(p, curElement, hooks) {
     }, curMsPerFrame);
     doLoop = true;
     loopStarted = true;
-    if (sketchStarted) {
-      hooks.onLoop();
-    }
+    hooks.onLoop();
   };
 
   /**
@@ -5089,18 +6194,29 @@ function playBindings(p, curElement, hooks) {
     // p.pmouseX = pmouseXLastEvent;
     // p.pmouseY = pmouseYLastEvent;
   };
+
+  // Internal function for kicking off the draw loop
+  // for a sketch. Depending on whether a noLoop() was
+  // issued during setup or initial draw, this might
+  // do "nothing", other than record the sketch start.
+  return function() {
+    if (doLoop) {
+      console.log("kicking off animation");
+      p.loop();
+    }
+  }
 }
 
 let emptyhooks = {
-  preSetup: noop$1,
-  postSetup: noop$1,
-  preDraw: noop$1,
-  postDraw: noop$1,
+  preSetup: noop,
+  postSetup: noop,
+  preDraw: noop,
+  postDraw: noop,
 
-  onFrameStart: noop$1,
-  onFrameEnd: noop$1,
-  onLoop: noop$1,
-  onPause: noop$1
+  onFrameStart: noop,
+  onFrameEnd: noop,
+  onLoop: noop,
+  onPause: noop
 };
 
 class SketchRunner {
@@ -5117,8 +6233,13 @@ class SketchRunner {
       canvas.height = 100;
       this.target = canvas;
     }
-    this.curElement = this.target.getContext("2d");
-    playBindings(this.sketch, this.curElement, this.hooks);
+
+    // set up Processing API function bindings
+    colorBindings(this.sketch, this.hooks);
+    this.startLooping = playBindings(this.sketch, this.hooks);
+
+    // FIXME: TODO: test size() doing anything at all. REMOVE LATER... possibly
+    this.sketch.__setup_drawing_context(this.target, this.target.getContext("2d"));
   }
 
   /**
@@ -5138,8 +6259,9 @@ class SketchRunner {
 	    this.sketch.draw();
       this.hooks.onFrameEnd();
 	    this.__post_draw();
-	    // and then we either animate or we don't, depending on sketch.noLoop
-      this.sketch.__run_after_initial_draw();
+	    // and then we either animate or we don't, depending on whether
+      // the user called sketch.noLoop() before we reach this point.
+      this.startLooping();
 	  }
   }
 
@@ -5226,7 +6348,11 @@ var Processing = {
   injectSketch(sketchSourceCode, target, additionalScopes, hooks) {
     let id = staticSketchList.length;
 
-    staticSketchList[id] = { sketch: undefined, target, hooks };
+    staticSketchList[id] = {
+      sketch: undefined,
+      target,
+      hooks
+    };
 
     let old = document.querySelector(`#processing-sketch-${id}`);
     if (old) { return; }

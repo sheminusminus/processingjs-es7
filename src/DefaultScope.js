@@ -1,18 +1,15 @@
-/**
- * The "default scope" is effectively the Processing API, which is then
- * extended with a user's own sketch code.
- *
- * Changing of the prototype protects internal Processing code from
- * the changes in defaultScope [FIXME: TODO: what did we mean by this?]
- */
+import Drawing2D from "./drawing/Drawing2D";
 
 import PConstants from "./PConstants";
+import BaseValues from "./BaseValues";
 import ArrayList from "./Processing Objects/ArrayList"
 import Char from "./Processing Objects/Char"
 import HashMap from "./Processing Objects/HashMap/HashMap"
 import PFont from "./Processing Objects/PFont/PFont"
 import ProcessingMath from "./Processing Objects/Math/ProcessingMath";
 import JavaProxies from "./JavaProxies"
+
+
 
 // import PMatrix2D from "./Processing Objects/PMatrix2D"
 // import PMatrix3D from "./Processing Objects/PMatrix3D"
@@ -23,51 +20,75 @@ import JavaProxies from "./JavaProxies"
 // import XMLAttribute from "./Processing Objects/XMLAttribute"
 // import XMLElement from "./Processing Objects/XMLElement"
 
-let defaultScopes = {
-  ArrayList,
-  Char,
-  Character: Char,
-  HashMap,
-  PFont
-};
-
-let processingAPIs = [Math, ProcessingMath, JavaProxies];
-
-// Due to the fact that PConstants is a massive list of values,
-// we can't cleanly set up this "inheritance" using ES6 classes.
-let DefaultScope = function DefaultScope() {};
-DefaultScope.prototype = PConstants;
-
-
-
-// =====================================================================
-//
-//    THIS IS STILL AN OLD FILE FROM THE ORIGINAL NODE-PROCESSING-JS
-//
-// =====================================================================
-
-
-
 /**
- * Processing.js default scope
+ * This function effectively generates "a sketch" without any
+ * user defined code loaded into it yet, hence acting as
+ * the default global sketch scope until we inject the user's
+ * own functions and classes into it.
+ *
+ * This code works together with the AST code to "fake" several
+ * ways in which Java does things differently from JavaScript.
  */
 export default function generateDefaultScope(additionalScopes) {
 
-  // bootstrap a default scope instance
-  additionalScopes = additionalScopes || {};
-  let scopes = Object.assign({}, defaultScopes, additionalScopes);
-  let defaultScope = new DefaultScope();
-  Object.keys(scopes).forEach(prop => defaultScope[prop] = scopes[prop]);
+  // FIXME: TODO: determine the use3d value
 
-  // bootstrap the Processing API functions
-  processingAPIs.forEach(API => {
-    Object.getOwnPropertyNames(API).forEach(fname => {
-      if (fname === "length") return;
-      if (fname === "name") return;
-      if (fname === "prototype") return;
-      defaultScope[fname] = API[fname];
-    })
-  });
+  /**
+   * The "default scope" is effectively the Processing API, which is then
+   * extended with a user's own sketch code. However, because we're going
+   * to dynamically update its Prototype, we define it inline, so that updates
+   * to the DefaultScope prototype only affects individual sketches, not all
+   * sketches built off of the same prototype.
+   */
+  let DefaultScope = function DefaultScope() {};
+
+  DefaultScope.prototype = Object.assign(
+    {},
+
+    // Processing constants and independent functions:
+    PConstants,
+    BaseValues,
+    Math,
+    ProcessingMath,
+
+    // Java constants and independent functions:
+    JavaProxies,
+
+    // Processing objects:
+    {
+      ArrayList,
+      Char,
+      Character: Char,
+      HashMap,
+      PFont
+    }
+  );
+
+  // bootstrap a default scope instance
+  let defaultScope = new DefaultScope();
+
+  // and tack on any additional scopes that might be necessary
+  // based on the user's needs. This allows for things like
+  // imports, which don't work, being made to work anyway by
+  // adding similar API'd objects as additional scope.
+  if (additionalScopes) {
+    Object.keys(additionalScopes).forEach(prop => {
+      defaultScope[prop] = scopes[prop]
+    });
+  }
+
+  // FIXME: TODO: testing size() calls
+  defaultScope.__setup_drawing_context = function(canvas, context) {
+    let dContext = new Drawing2D(defaultScope, canvas, context);
+    defaultScope.context = dContext;
+  }
+
+
+// =================================================================================
+//
+//    BELOW THIS POINT IS STILL ALL THE OLD CODE FROM THE ORIGINAL PROCESSING-JS
+//
+// =================================================================================
 
 
   ////////////////////////////////////////////////////////////////////////////

@@ -55,7 +55,7 @@ export default class PImage {
     }
 
     this.pixels = buildPixelsObject(this);
-    this.__isPImage: true,
+    this.__isPImage = true;
   }
 
   /**
@@ -74,7 +74,7 @@ export default class PImage {
       canvas.getContext('2d').putImageData(this.imageData, 0, 0);
     }
     this.__isDirty = false;
-  },
+  }
 
   fromHTMLImageData(htmlImg) {
     // convert an <img> to a PImage
@@ -90,7 +90,7 @@ export default class PImage {
       }
     }
     this.sourceImg = htmlImg;
-  },
+  }
 
   get(x, y, w, h) {
     if (!arguments.length) {
@@ -102,7 +102,7 @@ export default class PImage {
     if (arguments.length === 4) {
       return this.p.get(x, y, w, h, this);
     }
-  },
+  }
 
   /**
   * @member PImage
@@ -124,7 +124,7 @@ export default class PImage {
   set(x, y, c) {
     this.p.set(x, y, c, this);
     this.__isDirty = true;
-  },
+  }
 
   /**
   * @member PImage
@@ -172,7 +172,7 @@ export default class PImage {
       this.p.blend(srcImg, x, y, width, height, dx, dy, dwidth, dheight, MODE, this);
     }
     delete this.sourceImg;
-  },
+  }
 
   /**
   * @member PImage
@@ -201,7 +201,7 @@ export default class PImage {
       this.p.blend(srcImg, sx, sy, swidth, sheight, dx, dy, dwidth, dheight, PConstants.REPLACE, this);
     }
     delete this.sourceImg;
-  },
+  }
 
   /**
   * @member PImage
@@ -229,7 +229,7 @@ export default class PImage {
       this.p.filter(mode, null, this);
     }
     delete this.sourceImg;
-  },
+  }
 
   /**
   * @member PImage
@@ -245,9 +245,9 @@ export default class PImage {
   *
   * @param {String} filename        a sequence of letters and numbers
   */
-  save(file){
+  save(file) {
     this.p.save(file,this);
-  },
+  }
 
   /**
   * @member PImage
@@ -277,7 +277,7 @@ export default class PImage {
       // set this as new pimage
       this.fromImageData(imageData);
     }
-  },
+  }
 
   /**
   * @member PImage
@@ -322,7 +322,7 @@ export default class PImage {
     }
 
     this.fromImageData(obj);
-  },
+  }
 
   // These are intentionally left blank for PImages, we work live with pixels and draw as necessary
   /**
@@ -334,7 +334,9 @@ export default class PImage {
   * and after changes have been made, call updatePixels(). Even if the renderer may not seem to use
   * this function in the current Processing release, this will always be subject to change.
   */
-  loadPixels: noop,
+  loadPixels() {
+    // noop
+  }
 
   toImageData() {
     if (this.isRemote) {
@@ -347,7 +349,7 @@ export default class PImage {
 
     var canvasData = getCanvasData(this.sourceImg);
     return canvasData.context.getImageData(0, 0, this.width, this.height);
-  },
+  }
 
   toDataURL() {
     if (this.isRemote) { // Remote images cannot access imageData
@@ -355,7 +357,7 @@ export default class PImage {
     }
     var canvasData = getCanvasData(this.imageData);
     return canvasData.canvas.toDataURL();
-  },
+  }
 
   fromImageData(canvasImg) {
     var w = canvasImg.width,
