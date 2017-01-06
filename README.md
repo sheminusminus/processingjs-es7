@@ -31,7 +31,7 @@ The process of conversion and interpretation runs through quite a few steps, so 
 This code is then handed back to the page in the form of a `<script>` element, injected into the `<head>` (with the `{{ SKETCH_ID_PLACEHOLDER }}` part turned into a numerical identifier), which causes the browser to run it as it would any other JavaScript. This does a few things:
 
  - `3: let $p = PJS.generateDefaultScope();` this calls `Processing.generateDefaultScope`, which in turn falls through to `DefaultScope.generateDefaultScope()`, which generates the bulk of the Processing API, albeit not associated with any particular sketch yet.
- - `7: PJS.onSketchLoad($p);` this calls `Processing.onSketchLoad()` with the scoping object generated above as argument. This function crosslinks the incoming sketch with some cached values before its javascript source get injected into the page, and then wraps the sketch in a `SketchRunner` object, which is responsible for the whole "animation" thing.
+ - `7: PJS.onSketchLoad($p);` this calls `Processing.onSketchLoad()` with the scoping object generated above as argument. This function crosslinks the incoming sketch with some cached values it knows about from before the javascript source got injected into the page, and then wraps the sketch in a `SketchRunner` object, which is responsible for the whole "animation" thing.
  - the `SketchRunner` performs the hooking of sketch-specific API functions and constants into the generic scope object it was passed, and now we have an actually fully functioning sketch object. We just need to run it.
  - Unsurprisingly, this is the final function call in `Processing.onSketchLoad` before it returns.
 
