@@ -5,6 +5,10 @@ An attempt at an ES2017 implementation of [Processing.js](https://github.com/pro
 - [x] port the parser
 - [x] rewrite how sketches are run (from new Function() to `<script>` elements instead)
 - [x] slot in some of the basic Processing API to get a canvas to do a thing at all
+- [ ] port Drawing2D
+- [x] bundling
+- [x] add decent minification
+- [ ] add a test framework
 - [ ] make the parser generate ES7 code
 
 ## From source code to animation on a page
