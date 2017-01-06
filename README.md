@@ -111,16 +111,33 @@ So sketches are assigned their own set of functions each for these type of funct
 Finally, the third way Processing API functionality is imparted is through the [`DrawingShared`](src/drawing/DrawingShared.js) class, which the concrete `Drawing2D` and `Drawing3D` classes extend. These classes are found in the `./src/drawing` directory, and of the three ways the API is imparted, is frankly the least inspiring:
 
 ```
+import drawFunctions from "./drawFunctions";
+
 class DrawingShared {
   // ...
 
   bindSketchFNames(p) {
-    p.size = this.size.bind(this);
-    p.background = this.background.bind(this);
-    p.alpha = this.alpha.bind(this);
-    ...
+    drawFunctions.forEach(fn => {
+      p[fn] = this[fn].bind(this);
+    });
   }
+
+  // ...
 }
+```
+
+What's in `drawFunctions`? Literally just a name of all the functions to copy over:
+
+```
+const drawFunctions = [
+  "size",
+  "redraw",
+  "background",
+  ...
+];
+
+export default drawFunctions;
+
 ```
 
 The `DrawingShared` class houses all the drawing-related locally scoped variables (of which there are **many**), and simpy ends its constructor for a sketch by calling the `this.bindSketchFNames()` function with the active sketch as argument. function assignment is performed, using `bind(this)` to ensure that the execution context for the functions stays the Drawing class, rather than becoming the sketch, and that's it, really.
