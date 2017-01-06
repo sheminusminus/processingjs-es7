@@ -67,17 +67,37 @@ export default function generateDefaultScope(additionalScopes) {
     });
   }
 
-  defaultScope.__setup_drawing_context = function(canvas, context) {
-    defaultScope.context = new Drawing2D(defaultScope, canvas, context);
-  }
-
-  // ...lots of parser-related code
+  ...
 
   return defaultScope;
 }
 ```
 
 The prototype assignment turns the defaultScope's prototype into a massive object with properties pulled from lots of different specific-task-or-object modules, with things like ArrayList, Char, etc. tacked on wholesale (so that `p.ArrayList` is `ArrayList`, rather than copying the *content* of an ArrayList class into the defaultScope. That would be bad =).
+
+The last thing `DefaultScope` does is set up a temporary function that gives a sketch a `size()` function that has just enough code to determine whether to set up a 2D or 3D context for a sketch, and then hands off the `size()` call to that specific context:
+
+```
+  // initial size() binding, responsible for JIT-binding the true graphics context.
+  defaultScope.$perform_initial_binding = function(canvas) {
+    defaultScope.size = function(aWidth, aHeight, aMode) {
+      if (!aMode || aMode === PConstants.P2D) {
+        defaultScope.context = new Drawing2D(defaultScope, canvas);
+      }
+      else if (aMode === PConstants.P3D) {
+        // FIXME: TODO: not ported yet
+        // defaultScope.context = new Drawing3D(defaultScope, canvas);
+      }
+      else {
+        throw new Error("Unsupported mode supplied to size(). For 2D mode use P2D or JAVA2D, for 3D mode use P3D, OPENGL, or WEBGL");
+      }
+      defaultScope.size(aWidth, aHeight, aMode);
+    };
+    delete defaultScope.$perform_initial_binding;
+  }
+```
+
+This function, and the `size()` it generates, remove and overwrite themselves (respectively) when run.
 
 ## How does the SketchRunner impart Processing API aspects?
 
