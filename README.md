@@ -180,6 +180,8 @@ This code is still in a pre-release stage, and architectural designs might still
 
 ## NPM tasks
 
+There are several npm tasks that can be called through `npm run <task>` to perform the various develop and deploy tasks:
+
 - `build` uses [rollup](http://rollupjs.org) to bundle all the source
 - `minify` uses [babili](https://github.com/babel/babili) (with comments stripping) to minify the resulting bundle, which it does *really* well (atm the bundle ends up about the quarter of the size)
 - `test` runs the build/minification steps and drops a copy of pjs into the `./test` direction, which an instance of [http-server](https://www.npmjs.com/package/http-server) then loads up as http://localhost:8080 for you to test.
